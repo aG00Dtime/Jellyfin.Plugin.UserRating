@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" width="320" height="180">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16213e;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffd93d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff9a3c;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00a4dc;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0080b3;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="320" height="180" fill="url(#bgGrad)" rx="8"/>
+  
+  <!-- Accent bar at bottom -->
+  <rect y="160" width="320" height="20" fill="url(#accentGrad)" opacity="0.6"/>
+  
+  <!-- Main star (large, centered) -->
+  <path d="M160 40 L170 70 L202 70 L176 88 L186 118 L160 100 L134 118 L144 88 L118 70 L150 70 Z" 
+        fill="url(#starGrad)" 
+        stroke="#ffed4e" 
+        stroke-width="2"
+        filter="drop-shadow(0 4px 8px rgba(255, 217, 61, 0.3))"/>
+  
+  <!-- Small user icons (representing community) -->
+  <!-- Left user -->
+  <circle cx="60" cy="90" r="12" fill="#00a4dc" opacity="0.7"/>
+  <path d="M60 102 Q60 110, 50 115 L70 115 Q60 110, 60 102" fill="#00a4dc" opacity="0.7"/>
+  
+  <!-- Right user -->
+  <circle cx="260" cy="90" r="12" fill="#00a4dc" opacity="0.7"/>
+  <path d="M260 102 Q260 110, 250 115 L270 115 Q260 110, 260 102" fill="#00a4dc" opacity="0.7"/>
+  
+  <!-- Small stars (ratings from other users) -->
+  <!-- Left side stars -->
+  <path d="M40 60 L42 66 L48 66 L43 69 L45 75 L40 72 L35 75 L37 69 L32 66 L38 66 Z" 
+        fill="#ffd93d" opacity="0.8"/>
+  <path d="M70 55 L72 61 L78 61 L73 64 L75 70 L70 67 L65 70 L67 64 L62 61 L68 61 Z" 
+        fill="#ffd93d" opacity="0.6"/>
+  
+  <!-- Right side stars -->
+  <path d="M280 60 L282 66 L288 66 L283 69 L285 75 L280 72 L275 75 L277 69 L272 66 L278 66 Z" 
+        fill="#ffd93d" opacity="0.8"/>
+  <path d="M250 55 L252 61 L258 61 L253 64 L255 70 L250 67 L245 70 L247 64 L242 61 L248 61 Z" 
+        fill="#ffd93d" opacity="0.6"/>
+  
+  <!-- Text at bottom -->
+  <text x="160" y="150" font-family="Arial, sans-serif" font-size="18" font-weight="bold" 
+        fill="white" text-anchor="middle">USER RATINGS</text>
+</svg>
+

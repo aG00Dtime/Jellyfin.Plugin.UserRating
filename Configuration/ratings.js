@@ -10,7 +10,7 @@
             background: rgba(0, 0, 0, 0.15);
             backdrop-filter: blur(10px);
             border-radius: 10px;
-            padding: 1.5em;
+            padding: 2em 2.5em;
             margin-bottom: 2em;
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
@@ -71,7 +71,7 @@
         }
         .rating-note-input {
             width: 100%;
-            padding: 0.6em 0.8em;
+            padding: 0.8em 1em;
             background: rgba(0, 0, 0, 0.2);
             border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 6px;
@@ -79,6 +79,9 @@
             font-size: 0.95em;
             font-family: inherit;
             transition: border-color 0.2s, background 0.2s;
+            resize: vertical;
+            min-height: 80px;
+            line-height: 1.5;
         }
         .rating-note-input:focus {
             outline: none;
@@ -328,14 +331,14 @@
         col1.appendChild(starContainer);
         formRow.appendChild(col1);
         
-        // Column 2: Note input
+        // Column 2: Note textarea
         const col2 = document.createElement('div');
         col2.className = 'rating-form-col';
         col2.style.flex = '2';
-        const noteInput = document.createElement('input');
-        noteInput.type = 'text';
+        const noteInput = document.createElement('textarea');
         noteInput.className = 'rating-note-input';
         noteInput.placeholder = 'Add a note (optional)';
+        noteInput.rows = 3;
         col2.appendChild(noteInput);
         formRow.appendChild(col2);
         
