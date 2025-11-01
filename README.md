@@ -16,8 +16,7 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 ### Desktop/Web Browser
 ![User Ratings Interface - Desktop](screenshots/image.png)
 
-### Mobile Browser
-![User Ratings Interface - Mobile](screenshots/mobile.png)
+
 
 ---
 
