@@ -824,7 +824,10 @@
             // Function to build the ratings grid HTML for a category
             const buildCategoryGrid = (items) => items.map(item => {
                 const details = item.details;
-                const imageUrl = ApiClient.getImageUrl(item.itemId, {
+                
+                // For episodes, use the series thumbnail instead
+                const imageId = details.Type === 'Episode' && details.SeriesId ? details.SeriesId : item.itemId;
+                const imageUrl = ApiClient.getImageUrl(imageId, {
                     type: 'Primary',
                     maxHeight: 400,
                     quality: 90
