@@ -119,46 +119,62 @@
             flex-wrap: wrap;
         }
         .rating-actions button {
-            padding: 0.75em 1.8em;
-            border: none;
-            border-radius: 8px;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            outline: 0;
+            margin: 0;
             cursor: pointer;
-            font-weight: 600;
-            font-size: 0.95em;
-            transition: all 0.2s;
-            letter-spacing: 0.02em;
+            user-select: none;
+            vertical-align: middle;
+            text-decoration: none;
+            font-family: inherit;
+            font-weight: 500;
+            font-size: 0.9375rem;
+            line-height: 1.75;
+            letter-spacing: 0.02857em;
+            text-transform: uppercase;
+            min-width: 64px;
+            padding: 8px 22px;
+            border-radius: 4px;
+            transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms, border-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+            border: 0;
         }
         .rating-actions .save-btn {
-            background: linear-gradient(180deg, #e53935 0%, #c62828 100%);
-            color: white;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            background-color: #e53935;
+            color: #fff;
+            box-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12);
             flex: 1;
             min-width: 200px;
         }
         .rating-actions .save-btn:hover:not(:disabled) {
-            background: linear-gradient(180deg, #d32f2f 0%, #b71c1c 100%);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(229, 57, 53, 0.4);
+            background-color: #d32f2f;
+            box-shadow: 0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12);
+        }
+        .rating-actions .save-btn:active:not(:disabled) {
+            box-shadow: 0px 5px 5px -3px rgba(0,0,0,0.2), 0px 8px 10px 1px rgba(0,0,0,0.14), 0px 3px 14px 2px rgba(0,0,0,0.12);
         }
         .rating-actions .save-btn:disabled {
-            background: linear-gradient(180deg, #666 0%, #555 100%);
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-            opacity: 0.6;
+            background-color: rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.3);
+            cursor: default;
+            pointer-events: none;
+            box-shadow: none;
         }
         .rating-actions .delete-btn {
-            background: transparent;
-            color: rgba(255, 255, 255, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 0.75em 1.5em;
-            font-weight: 500;
+            background-color: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.23);
+            padding: 7px 21px;
         }
         .rating-actions .delete-btn:hover {
-            background: rgba(229, 57, 53, 0.15);
-            color: #ff6b6b;
-            border-color: rgba(229, 57, 53, 0.4);
-            transform: none;
+            background-color: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.23);
+        }
+        .rating-actions .delete-btn:active {
+            background-color: rgba(255, 255, 255, 0.12);
         }
         .user-ratings-all {
             margin-top: 1.5em;
