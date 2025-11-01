@@ -15,18 +15,6 @@
                         Allow users to rate movies, TV shows, episodes, and music. Ratings and reviews are visible to all users on the server via the web interface.
                     </div>
 
-                    <div class="inputContainer">
-                        <label class="inputLabel" for="recentlyRatedCount">Recently Rated Items Count</label>
-                        <input type="number" id="recentlyRatedCount" is="emby-input" min="5" max="50" step="1" class="emby-input" />
-                        <div class="fieldDescription">Number of items to display in each "Recently Rated" section (Movies, Shows, Episodes). Default is 10.</div>
-                    </div>
-
-                    <div style="margin-top: 1em;">
-                        <button type="submit" is="emby-button" class="raised button-submit block">
-                            <span>Save</span>
-                        </button>
-                    </div>
-
                     <div style="margin-top: 2em; padding-top: 2em; border-top: 1px solid rgba(255, 255, 255, 0.1);">
                         <h3 style="color: #e53935;">Danger Zone</h3>
                         <div class="fieldDescription" style="margin-bottom: 1em;">
@@ -48,27 +36,7 @@
             };
 
             document.getElementById('UserRatingsConfigPage').addEventListener('pageshow', function () {
-                Dashboard.showLoadingMsg();
-                
-                ApiClient.getPluginConfiguration(UserRatingsConfig.pluginUniqueId).then(function (config) {
-                    document.getElementById('recentlyRatedCount').value = config.RecentlyRatedItemsCount || 10;
-                    Dashboard.hideLoadingMsg();
-                });
-            });
-
-            document.getElementById('UserRatingsConfigForm').addEventListener('submit', function (e) {
-                e.preventDefault();
-                Dashboard.showLoadingMsg();
-                
-                ApiClient.getPluginConfiguration(UserRatingsConfig.pluginUniqueId).then(function (config) {
-                    config.RecentlyRatedItemsCount = parseInt(document.getElementById('recentlyRatedCount').value) || 10;
-                    
-                    ApiClient.updatePluginConfiguration(UserRatingsConfig.pluginUniqueId, config).then(function () {
-                        Dashboard.processPluginConfigurationUpdateResult();
-                    });
-                });
-                
-                return false;
+                // No configuration to load
             });
 
             document.getElementById('btnDeleteAllRatings').addEventListener('click', function () {

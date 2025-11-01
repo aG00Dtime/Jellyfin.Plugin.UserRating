@@ -4,7 +4,7 @@ namespace Jellyfin.Plugin.UserRatings.Configuration
 {
     public class PluginConfiguration : BasePluginConfiguration
     {
-        public int RecentlyRatedItemsCount { get; set; } = 10;
+        // No configuration properties needed currently
     }
 }
 
