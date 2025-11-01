@@ -7,16 +7,18 @@
 
 A social rating system for Jellyfin that lets users rate movies, TV shows, episodes, and music, then see what other users on the server think!
 
+> **Note:** Currently supports **web UI only**. Mobile app support is not available at this time.
+
 ---
 
 ## Features
 
 - ⭐ Rate any content 1-5 stars
 - 👥 See ratings from other users on your server
-- 📊 Average ratings displayed in popup
+- 📊 Average ratings displayed automatically
 - 💬 Optional notes/comments with ratings
 - 📺 Works on movies, TV shows, episodes, and music
-- 🎨 Works across all Jellyfin UIs (web, mobile, etc.)
+- 🌐 Web interface support (desktop & mobile browsers)
 
 ## Installation
 
@@ -30,16 +32,17 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 ## Setup
 
-**No setup required!** After installing and restarting Jellyfin, the ratings UI will automatically appear on all item detail pages.
+**No setup required!** After installing and restarting Jellyfin, the ratings UI will automatically appear on item detail pages when accessing Jellyfin through a web browser.
 
 ## Usage
 
-1. Navigate to any **movie, TV show, episode, or music** item detail page
-2. The **User Ratings** section appears at the top of the page
-3. **Rate with 1-5 stars** by clicking the stars
-4. Optionally **add a note** to share your thoughts
-5. Click **Save Rating**
-6. See **all ratings** from other users below your rating!
+1. Open Jellyfin in a **web browser** (desktop or mobile)
+2. Navigate to any **movie, TV show, episode, or music** item detail page
+3. The **User Ratings** section appears at the top of the page
+4. **Rate with 1-5 stars** by clicking the stars
+5. Optionally **add a note** to share your thoughts
+6. Click **Save Rating**
+7. See **all ratings** from other users below your rating!
 
 ### Features
 
