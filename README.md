@@ -28,28 +28,34 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 3. Go to **Catalog**, find **User Ratings**, and install
 4. Restart Jellyfin
 
-## Usage
+## Setup
 
-### Quick Setup (Recommended)
+**One-time setup** - Add this single line to Jellyfin's Custom CSS:
 
 1. Go to **Dashboard → General → Custom CSS**
-2. Add this line:
+2. Paste this at the top:
    ```html
    <script src="https://raw.githubusercontent.com/aG00Dtime/Jellyfin.Plugin.UserRating/main/loader.html"></script>
    ```
-3. Click **Save** and refresh Jellyfin
+3. Click **Save** and refresh
 
-### Manual Setup (Alternative)
+That's it! The ★ button will now appear on all item pages.
 
-1. **Open the plugin settings** once (Dashboard → Plugins → User Ratings)
-2. The UI will be enabled automatically after that
+## Usage
 
-### Using the Plugin
+1. Navigate to any **movie, TV show, episode, or music** item
+2. Click the **floating ★ button** in the bottom right
+3. **Rate with 1-5 stars**, optionally add a note
+4. Click **Save Rating**
+5. See **all ratings** from other users in the same popup!
 
-1. **Navigate to any movie, show, episode, or music item**
-2. **Click the floating ★ button** in the bottom right corner
-3. **Rate with stars**, add an optional note, and save
-4. **See what others rated** in the same popup!
+### Features
+
+- ⭐ **Your rating** - visible stars you can click to change
+- 📝 **Optional notes** - add comments with your rating
+- 👥 **Other users' ratings** - see everyone's ratings and notes
+- 📊 **Average rating** - calculated automatically
+- 🗑️ **Delete rating** - remove your rating anytime
 
 ## Configuration
 
