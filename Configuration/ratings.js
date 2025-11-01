@@ -10,7 +10,8 @@
             background: rgba(0, 0, 0, 0.15);
             backdrop-filter: blur(10px);
             border-radius: 10px;
-            padding: 2em 2.5em;
+            padding: 1.8em 2em;
+            margin-top: 2em;
             margin-bottom: 2em;
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
@@ -34,34 +35,34 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
         .user-ratings-section-title {
-            font-size: 1.3em;
+            font-size: 1.15em;
             margin-bottom: 0.3em;
             color: #ffffff;
             font-weight: 600;
         }
         .user-ratings-section-subtitle {
-            font-size: 0.95em;
+            font-size: 0.9em;
             color: rgba(255, 255, 255, 0.5);
-            margin-bottom: 1em;
+            margin-bottom: 0.8em;
         }
         .rating-form-row {
             display: block;
             margin-top: 0.5em;
         }
         .rating-form-section {
-            margin-bottom: 2em;
+            margin-bottom: 1.6em;
         }
         .star-rating-container {
             display: flex;
             align-items: center;
-            gap: 1em;
+            gap: 0.8em;
             margin-bottom: 0.5em;
         }
         .star-rating {
             display: inline-flex;
-            gap: 0.3em;
+            gap: 0.25em;
             cursor: pointer;
-            font-size: 2.2em;
+            font-size: 1.9em;
         }
         .star-rating .star {
             color: rgba(255, 255, 255, 0.15);
@@ -82,7 +83,7 @@
         }
         .rating-note-input {
             width: 100%;
-            padding: 1em 1.2em;
+            padding: 1em;
             background: rgba(0, 0, 0, 0.2);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 8px;
@@ -91,7 +92,7 @@
             font-family: inherit;
             transition: border-color 0.2s, background 0.2s;
             resize: vertical;
-            min-height: 120px;
+            min-height: 100px;
             line-height: 1.6;
         }
         .rating-note-input:focus {
@@ -112,18 +113,18 @@
             color: #ff6b6b;
         }
         .rating-actions {
-            margin-top: 1.5em;
+            margin-top: 1.2em;
             display: flex;
             gap: 0.75em;
             flex-wrap: wrap;
         }
         .rating-actions button {
-            padding: 0.85em 2em;
+            padding: 0.75em 1.8em;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 1em;
+            font-size: 0.95em;
             transition: all 0.2s;
             letter-spacing: 0.02em;
         }
