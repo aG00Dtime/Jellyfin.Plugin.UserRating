@@ -661,50 +661,49 @@
             return;
         }
         
-        // Find the container to append our UI to
-        // We target .detailPagePrimaryContent and append as a separate section
-        let targetContainer = null;
+        // Find .detailSection and wait for it to have content, then inject after it
+        const detailSection = document.querySelector('.detailPagePrimaryContent .detailSection');
         
-        // Strategy 1: Look for .detailPagePrimaryContent (most reliable)
-        targetContainer = document.querySelector('.detailPagePrimaryContent');
-        
-        // Strategy 2: Look for .detailPageContent as fallback
-        if (!targetContainer) {
-            targetContainer = document.querySelector('.detailPageContent');
-        }
-        
-        // Strategy 3: Look for .itemDetailPage as last resort
-        if (!targetContainer) {
-            targetContainer = document.querySelector('.itemDetailPage');
-        }
-        
-        // Only check if container exists and has basic structure (don't check dimensions)
-        // We'll append our own section, so we don't need to wait for existing sections to render
-        if (targetContainer) {
-            const rect = targetContainer.getBoundingClientRect();
-            // Only check for existence, not dimensions - the parent container should always exist
-            if (rect.width === 0) {
-                console.log(`[UserRatings] Container has no width (${rect.width}), waiting...`);
-                targetContainer = null;
-            } else {
-                console.log(`[UserRatings] Found container:`, targetContainer.className, `(${rect.width}x${rect.height})`);
-            }
-        }
-        
-        if (!targetContainer) {
-            // If container not ready yet, retry with backoff
+        if (!detailSection) {
+            console.log('[UserRatings] .detailSection not found, waiting...');
             if (injectionAttempts < maxInjectionAttempts) {
                 injectionAttempts++;
-                const retryDelay = Math.min(100 * Math.pow(1.5, injectionAttempts), 3000); // Better exponential backoff
+                const retryDelay = Math.min(100 * Math.pow(1.5, injectionAttempts), 3000);
                 console.log(`[UserRatings] Container not ready, retry ${injectionAttempts}/${maxInjectionAttempts} in ${retryDelay.toFixed(0)}ms`);
                 setTimeout(injectRatingsUI, retryDelay);
             } else {
                 console.log('[UserRatings] Max injection attempts reached, giving up');
                 injectionAttempts = 0;
-                isInjecting = false; // Ensure flag is reset
+                isInjecting = false;
             }
             return;
         }
+        
+        // Check if .detailSection has dimensions (content loaded)
+        const rect = detailSection.getBoundingClientRect();
+        if (rect.height === 0 || rect.width === 0) {
+            console.log(`[UserRatings] .detailSection found but collapsed (${rect.width}x${rect.height}), waiting...`);
+            if (injectionAttempts < maxInjectionAttempts) {
+                injectionAttempts++;
+                const retryDelay = Math.min(100 * Math.pow(1.5, injectionAttempts), 3000);
+                console.log(`[UserRatings] Container not ready, retry ${injectionAttempts}/${maxInjectionAttempts} in ${retryDelay.toFixed(0)}ms`);
+                setTimeout(injectRatingsUI, retryDelay);
+            } else {
+                console.log('[UserRatings] Max injection attempts reached, giving up');
+                injectionAttempts = 0;
+                isInjecting = false;
+            }
+            return;
+        }
+        
+        // Use the parent (.detailPagePrimaryContent) as the target to append our UI as a sibling to .detailSection
+        const targetContainer = detailSection.parentElement;
+        if (!targetContainer) {
+            console.log('[UserRatings] Parent container not found');
+            return;
+        }
+        
+        console.log(`[UserRatings] Found .detailSection with content (${rect.width}x${rect.height}), injecting after it`);
         
         // Get item ID from URL
         let itemId = null;
@@ -1434,4 +1433,5 @@
         subtree: true,
         childList: true
     });
+})();
 })();
