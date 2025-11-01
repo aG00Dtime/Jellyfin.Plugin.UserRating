@@ -758,11 +758,39 @@
                     const styles = window.getComputedStyle(stillExists);
                     console.log('[UserRatings] ✅ UI verified in DOM. Display:', styles.display, 'Visibility:', styles.visibility);
                     
-                    // Check if container is in viewport
+                    // Check if container has dimensions
                     const rect = stillExists.getBoundingClientRect();
-                    const inViewport = rect.height > 0 && rect.width > 0;
-                    if (!inViewport) {
+                    const hasDimensions = rect.height > 0 && rect.width > 0;
+                    if (!hasDimensions) {
                         console.warn('[UserRatings] ⚠️ UI has no dimensions! Height:', rect.height, 'Width:', rect.width);
+                        
+                        // Check parent container
+                        const parent = stillExists.parentElement;
+                        if (parent) {
+                            const parentRect = parent.getBoundingClientRect();
+                            const parentStyles = window.getComputedStyle(parent);
+                            console.log('[UserRatings] Parent container:', {
+                                className: parent.className,
+                                height: parentRect.height,
+                                width: parentRect.width,
+                                display: parentStyles.display,
+                                overflow: parentStyles.overflow
+                            });
+                        }
+                        
+                        // Check children count
+                        console.log('[UserRatings] UI children count:', stillExists.children.length);
+                        
+                        // Force minimum dimensions as fallback
+                        console.log('[UserRatings] Forcing minimum height...');
+                        stillExists.style.minHeight = '200px';
+                        stillExists.style.display = 'block';
+                        
+                        // Re-check after forcing dimensions
+                        setTimeout(() => {
+                            const newRect = stillExists.getBoundingClientRect();
+                            console.log('[UserRatings] After forcing height - Height:', newRect.height, 'Width:', newRect.width);
+                        }, 100);
                     } else {
                         console.log('[UserRatings] ✅ UI is visible. Height:', rect.height, 'Width:', rect.width);
                     }
