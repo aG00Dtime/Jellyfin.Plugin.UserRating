@@ -7,7 +7,7 @@
 
 A social rating system for Jellyfin that lets users rate movies, TV shows, episodes, and music, then see what other users on the server think!
 
-> **Note:** Currently supports **web UI only**. Mobile app support is not available at this time.
+> **Note:** Currently supports **web UI only**. 
 
 ---
 
