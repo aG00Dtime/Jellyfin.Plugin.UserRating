@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "b8c5d3e7-4f6a-8b9c-1d2e-3f4a5b6c7d8e",
+    "name": "User Ratings",
+    "description": "Allow users to rate and review movies, TV shows, and music. See what other users on your server think!",
+    "overview": "Social rating system for Jellyfin - rate content and see ratings from other users on your server",
+    "owner": "davidhenry",
+    "category": "General",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "Initial release",
+        "targetAbi": "10.9.0.0",
+        "sourceUrl": "https://github.com/aG00Dtime/Jellyfin.Plugin.UserRating/releases/download/v1.0.0/Jellyfin.Plugin.UserRatings.zip",
+        "checksum": "placeholder",
+        "timestamp": "2025-11-01T00:00:00Z"
+      }
+    ]
+  }
+]
+

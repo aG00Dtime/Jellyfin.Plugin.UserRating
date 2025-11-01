@@ -1,0 +1,96 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update AssemblyVersion and FileVersion in .csproj
+        run: |
+          sed -i "s/<AssemblyVersion>.*<\/AssemblyVersion>/<AssemblyVersion>${{ steps.get_version.outputs.VERSION }}.0<\/AssemblyVersion>/" Jellyfin.Plugin.UserRatings.csproj
+          sed -i "s/<FileVersion>.*<\/FileVersion>/<FileVersion>${{ steps.get_version.outputs.VERSION }}.0<\/FileVersion>/" Jellyfin.Plugin.UserRatings.csproj
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
+      - name: Create plugin directory
+        run: mkdir -p plugin/Jellyfin.Plugin.UserRatings
+
+      - name: Copy plugin files
+        run: cp bin/Release/net8.0/Jellyfin.Plugin.UserRatings.dll plugin/Jellyfin.Plugin.UserRatings/
+
+      - name: Create zip
+        run: |
+          cd plugin
+          zip -r ../Jellyfin.Plugin.UserRatings.zip Jellyfin.Plugin.UserRatings/
+
+      - name: Calculate checksum
+        run: md5sum Jellyfin.Plugin.UserRatings.zip > Jellyfin.Plugin.UserRatings.zip.md5
+
+      - name: Update manifest.json
+        run: |
+          CHECKSUM=$(md5sum Jellyfin.Plugin.UserRatings.zip | awk '{print $1}')
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          jq --arg version "${{ steps.get_version.outputs.VERSION }}" \
+             --arg checksum "$CHECKSUM" \
+             --arg timestamp "$TIMESTAMP" \
+             --arg sourceUrl "https://github.com/aG00Dtime/Jellyfin.Plugin.UserRating/releases/download/v${{ steps.get_version.outputs.VERSION }}/Jellyfin.Plugin.UserRatings.zip" \
+             '.versions[0].version = $version |
+              .versions[0].checksum = $checksum |
+              .versions[0].timestamp = $timestamp |
+              .versions[0].sourceUrl = $sourceUrl' \
+             manifest.json > manifest.json.tmp
+          mv manifest.json.tmp manifest.json
+
+      - name: Commit updated files
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add manifest.json Jellyfin.Plugin.UserRatings.csproj VERSION.txt
+          git commit -m "Update version to ${{ steps.get_version.outputs.VERSION }}" || echo "No changes to commit"
+          git push origin HEAD:main || echo "Nothing to push"
+
+      - name: Create Pre-Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            Jellyfin.Plugin.UserRatings.zip
+            Jellyfin.Plugin.UserRatings.zip.md5
+          prerelease: true
+          draft: false
+          name: Pre-Release v${{ steps.get_version.outputs.VERSION }}
+          body: |
+            🚧 **Pre-Release Build** 🚧
+            
+            This is a pre-release version for testing purposes.
+            
+            ## Installation
+            1. Download `Jellyfin.Plugin.UserRatings.zip`
+            2. Extract to your Jellyfin plugins directory
+            3. Restart Jellyfin
+            
+            ## Changes
+            See commit history for details.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

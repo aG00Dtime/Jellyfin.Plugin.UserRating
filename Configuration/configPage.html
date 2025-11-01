@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>User Ratings</title>
+</head>
+<body>
+    <div id="UserRatingsConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="UserRatingsConfigForm">
+                    <h2>User Ratings Plugin</h2>
+                    
+                    <div class="fieldDescription" style="margin-bottom: 2em;">
+                        Allow users to rate movies, TV shows, and music. Ratings are visible to all users on the server.
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input id="chkEnableNotifications" name="chkEnableNotifications" type="checkbox" is="emby-checkbox" />
+                            <span>Enable Rating Notifications</span>
+                        </label>
+                        <div class="fieldDescription">Notify users when someone rates an item</div>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label>
+                            <input id="chkShowAverageOnItems" name="chkShowAverageOnItems" type="checkbox" is="emby-checkbox" />
+                            <span>Show Average Rating on Items</span>
+                        </label>
+                        <div class="fieldDescription">Display average user rating on item pages</div>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block">
+                            <span>Save</span>
+                        </button>
+                    </div>
+
+                    <div style="margin-top: 2em;">
+                        <h3>API Endpoints</h3>
+                        <div class="fieldDescription">
+                            <strong>Rate an item:</strong> POST /UserRatings/Rate?itemId=xxx&rating=5&note=Great!<br>
+                            <strong>Get item ratings:</strong> GET /UserRatings/Item/{itemId}<br>
+                            <strong>Get my rating:</strong> GET /UserRatings/MyRating/{itemId}<br>
+                            <strong>Get user ratings:</strong> GET /UserRatings/User/{userId}<br>
+                            <strong>Delete rating:</strong> DELETE /UserRatings/Rating?itemId=xxx
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            var UserRatingsConfig = {
+                pluginUniqueId: "b8c5d3e7-4f6a-8b9c-1d2e-3f4a5b6c7d8e"
+            };
+
+            document.getElementById('UserRatingsConfigPage').addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(UserRatingsConfig.pluginUniqueId).then(function (config) {
+                    document.getElementById('chkEnableNotifications').checked = config.EnableNotifications;
+                    document.getElementById('chkShowAverageOnItems').checked = config.ShowAverageOnItems;
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            document.getElementById('UserRatingsConfigForm').addEventListener('submit', function (e) {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(UserRatingsConfig.pluginUniqueId).then(function (config) {
+                    config.EnableNotifications = document.getElementById('chkEnableNotifications').checked;
+                    config.ShowAverageOnItems = document.getElementById('chkShowAverageOnItems').checked;
+                    
+                    ApiClient.updatePluginConfiguration(UserRatingsConfig.pluginUniqueId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+                e.preventDefault();
+                return false;
+            });
+
+            // Inject the ratings UI script into the main Jellyfin page
+            (function() {
+                try {
+                    const targetDoc = window.parent.document;
+                    const scriptId = 'user-ratings-script';
+                    
+                    // Check if already injected
+                    if (targetDoc.getElementById(scriptId)) {
+                        console.log('[UserRatings] Script already injected');
+                        return;
+                    }
+                    
+                    // Inject the script
+                    const script = targetDoc.createElement('script');
+                    script.id = scriptId;
+                    script.src = '/web/ConfigurationPage?name=ratings.js&v=' + Date.now();
+                    targetDoc.head.appendChild(script);
+                    
+                    console.log('[UserRatings] Script injected into main page');
+                } catch (e) {
+                    console.error('[UserRatings] Failed to inject script:', e);
+                }
+            })();
+        </script>
+    </div>
+</body>
+</html>
+
