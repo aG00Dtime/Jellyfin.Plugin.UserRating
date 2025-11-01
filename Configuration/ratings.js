@@ -746,24 +746,6 @@
             isInjecting = false;
             console.log('[UserRatings] ✓ UI injected successfully');
             
-            // Watch for the UI being removed
-            const removalObserver = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    for (const node of mutation.removedNodes) {
-                        if (node.id === 'user-ratings-ui') {
-                            console.error('[UserRatings] ⚠️ UI was removed from DOM by:', mutation.target);
-                            removalObserver.disconnect();
-                            // Re-inject after a delay
-                            isInjecting = false;
-                            injectionAttempts = 0;
-                            setTimeout(injectRatingsUI, 200);
-                            return;
-                        }
-                    }
-                }
-            });
-            removalObserver.observe(targetContainer, { childList: true, subtree: true });
-            
             // Verify injection after a short delay
             setTimeout(() => {
                 const stillExists = document.getElementById('user-ratings-ui');
@@ -821,7 +803,7 @@
         });
     }
 
-    // Watch for page changes with more aggressive detection
+    // Watch for page changes - update content instead of removing/re-injecting
     let lastUrl = location.href;
     new MutationObserver((mutations) => {
         const url = location.href;
@@ -830,12 +812,7 @@
         if (url !== lastUrl) {
             lastUrl = url;
             
-            // Remove old UI when navigating to a new page
-            const oldUI = document.getElementById('user-ratings-ui');
-            if (oldUI) {
-                console.log('[UserRatings] Removing old UI on navigation');
-                oldUI.remove();
-            }
+            const existingUI = document.getElementById('user-ratings-ui');
             
             // Hide ratings tab when navigating away from home
             const ratingsTab = document.querySelector('#ratingsTab');
@@ -844,12 +821,57 @@
                 ratingsTab.style.display = 'none';
             }
             
-            // Reset injection state
-            isInjecting = false;
-            injectionAttempts = 0;
+            // Check if we're on a detail page
+            const hash = location.hash;
+            const isDetailPage = url.includes('/details?id=') || 
+                               url.includes('#/details?id=') || 
+                               hash.includes('/details?id=') ||
+                               hash.includes('#/details?id=');
             
-            // Try injection with slight delay
-            setTimeout(injectRatingsUI, 150);
+            if (isDetailPage) {
+                // On detail page - update content if UI exists, otherwise inject
+                if (existingUI) {
+                    console.log('[UserRatings] Detail page loaded, updating existing UI content');
+                    // Get new item ID
+                    let itemId = null;
+                    const urlParams = new URLSearchParams(window.location.search);
+                    itemId = urlParams.get('id');
+                    if (!itemId && window.location.hash.includes('?')) {
+                        const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
+                        itemId = hashParams.get('id');
+                    }
+                    if (!itemId) {
+                        const guidMatch = window.location.href.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+                        if (guidMatch) {
+                            itemId = guidMatch[1];
+                        }
+                    }
+                    
+                    if (itemId && itemId !== currentItemId) {
+                        currentItemId = itemId;
+                        existingUI.style.display = 'block';
+                        // Update the UI content
+                        createRatingsUI(itemId).then(newUI => {
+                            existingUI.innerHTML = newUI.innerHTML;
+                            console.log('[UserRatings] ✅ UI content updated for new item:', itemId);
+                        });
+                    } else {
+                        existingUI.style.display = 'block';
+                    }
+                } else {
+                    // UI doesn't exist yet, inject it
+                    isInjecting = false;
+                    injectionAttempts = 0;
+                    setTimeout(injectRatingsUI, 150);
+                }
+            } else {
+                // Not on detail page - hide UI but don't remove it
+                if (existingUI) {
+                    console.log('[UserRatings] Navigating away from detail page, hiding UI');
+                    existingUI.style.display = 'none';
+                }
+            }
+            
             return;
         }
         
@@ -894,11 +916,7 @@
     
     // Also check on hash change
     window.addEventListener('hashchange', () => {
-        // Remove old UI on hash change
-        const oldUI = document.getElementById('user-ratings-ui');
-        if (oldUI) {
-            oldUI.remove();
-        }
+        const existingUI = document.getElementById('user-ratings-ui');
         
         // Manage page visibility
         const ratingsTab = document.querySelector('#ratingsTab');
@@ -907,12 +925,10 @@
         if (ratingsTab) {
             if (!currentHash.includes('home')) {
                 // Navigating away from home - hide ratings page
-                console.log('[UserRatings] Navigating away from home - hiding ratings page');
                 ratingsTab.style.display = 'none';
                 ratingsTab.classList.add('hide');
             } else if (currentHash.includes('home')) {
                 // Navigating back to home - ensure ratings page is hidden and only show home page
-                console.log('[UserRatings] Navigating to home - ensuring clean state');
                 ratingsTab.style.display = 'none';
                 ratingsTab.classList.add('hide');
                 
@@ -930,18 +946,32 @@
                 if (homePage) {
                     homePage.classList.remove('hide');
                     homePage.style.display = '';
-                    console.log('[UserRatings] Restored home page only');
                 }
             }
         }
         
-        // Reset injection state
-        isInjecting = false;
-        injectionAttempts = 0;
+        // Check if we're on a detail page
+        const url = location.href;
+        const hash = location.hash;
+        const isDetailPage = url.includes('/details?id=') || 
+                           url.includes('#/details?id=') || 
+                           hash.includes('/details?id=') ||
+                           hash.includes('#/details?id=');
         
-        // Try injection with multiple attempts
-        setTimeout(injectRatingsUI, 100);
-        setTimeout(injectRatingsUI, 300);
+        if (isDetailPage && existingUI) {
+            // Update UI content for new item
+            existingUI.style.display = 'block';
+            setTimeout(injectRatingsUI, 100);
+        } else if (!isDetailPage && existingUI) {
+            // Hide UI when not on detail page
+            existingUI.style.display = 'none';
+        } else if (isDetailPage && !existingUI) {
+            // Inject UI if it doesn't exist yet
+            isInjecting = false;
+            injectionAttempts = 0;
+            setTimeout(injectRatingsUI, 100);
+            setTimeout(injectRatingsUI, 300);
+        }
     });
 
     // Function to display ratings list in the home page content area
