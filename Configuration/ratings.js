@@ -593,6 +593,17 @@
         await displayAllRatings(itemId, container);
         console.log('[UserRatings] → All ratings loaded, returning container');
         
+        // Check size after all async operations complete
+        setTimeout(() => {
+            const rect = container.getBoundingClientRect();
+            console.log('[UserRatings] Post-load size check:', rect.width, 'x', rect.height);
+            if (rect.width === 0 && rect.height === 0) {
+                console.log('[UserRatings] Container has zero size after loading, will trigger refresh');
+                // Store flag for size check to handle
+                container.dataset.zeroSize = 'true';
+            }
+        }, 200);
+        
         return container;
     }
 
@@ -791,19 +802,23 @@
         createRatingsUI(itemId).then(ui => {
             targetContainer.appendChild(ui);
             
-            // Check if UI has zero width/height (not actually rendered)
-            // Wait a bit for browser to render
-            setTimeout(() => {
-                // Don't check if we're navigating
-                if (isNavigating || (Date.now() - lastNavigationTime) < 1000) {
-                    isInjecting = false;
-                    return;
-                }
-                
+            // Function to check size and handle refresh
+            const checkSizeAndRefresh = (checkName) => {
                 const rect = ui.getBoundingClientRect();
                 const hasZeroSize = rect.width === 0 && rect.height === 0;
+                const hasZeroSizeFlag = ui.dataset.zeroSize === 'true';
                 
-                if (hasZeroSize) {
+                console.log(`[UserRatings] ${checkName} size check:`, rect.width, 'x', rect.height, hasZeroSize ? '(ZERO)' : '', hasZeroSizeFlag ? '(flagged)' : '');
+                
+                // Check if zero size or was flagged during creation
+                if (hasZeroSize || hasZeroSizeFlag) {
+                    // Only block if we're actively navigating (not just injected)
+                    const recentlyNavigated = isNavigating && (Date.now() - lastNavigationTime) < 500;
+                    if (recentlyNavigated && checkName !== 'Final') {
+                        console.log('[UserRatings] Skipping refresh check - very recent navigation');
+                        return false;
+                    }
+                    
                     console.log('[UserRatings] UI has zero size, triggering refresh');
                     const injectedUI = document.getElementById('user-ratings-ui');
                     if (injectedUI) {
@@ -812,12 +827,37 @@
                     isInjecting = false;
                     hasTriedRefresh = false; // Allow refresh to be tried
                     seamlessPageRefresh(itemId);
+                    return true; // Refresh triggered
                 } else {
-                    isInjecting = false;
-                    hasTriedRefresh = false; // Reset on success so refresh can be tried again if UI disappears
-                    console.log('[UserRatings] ✓ UI injected successfully (size:', rect.width, 'x', rect.height, ')');
+                    // Clear any zero size flag on success
+                    delete ui.dataset.zeroSize;
+                    return false; // No refresh needed
                 }
-            }, 100); // Small delay to allow browser to render
+            };
+            
+            // Immediate check (after DOM insertion)
+            setTimeout(() => {
+                if (!checkSizeAndRefresh('Immediate')) {
+                    isInjecting = false;
+                }
+            }, 100);
+            
+            // Check after async operations should complete
+            setTimeout(() => {
+                if (!checkSizeAndRefresh('Post-async')) {
+                    if (isInjecting) {
+                        isInjecting = false;
+                        hasTriedRefresh = false;
+                        console.log('[UserRatings] ✓ UI injected successfully');
+                    }
+                }
+            }, 800);
+            
+            // Final check after longer delay
+            setTimeout(() => {
+                checkSizeAndRefresh('Final');
+            }, 1500);
+            
         }).catch(err => {
             console.error('[UserRatings] Error creating UI:', err);
             isInjecting = false;
