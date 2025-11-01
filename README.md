@@ -30,16 +30,7 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 ## Setup
 
-**One-time setup** - Add this single line to Jellyfin's Custom CSS:
-
-1. Go to **Dashboard → General → Custom CSS**
-2. Paste this at the top:
-   ```html
-   <script src="https://raw.githubusercontent.com/aG00Dtime/Jellyfin.Plugin.UserRating/main/loader.html"></script>
-   ```
-3. Click **Save** and refresh
-
-That's it! The ★ button will now appear on all item pages.
+**No setup required!** After installing and restarting Jellyfin, the ★ button will automatically appear on all item pages.
 
 ## Usage
 
