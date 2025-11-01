@@ -174,6 +174,7 @@
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
         container.className = 'star-rating';
+        let currentSelectedRating = rating;
         
         for (let i = 1; i <= 5; i++) {
             const star = document.createElement('span');
@@ -183,14 +184,17 @@
             
             if (interactive) {
                 star.addEventListener('mouseenter', () => onHover(i));
-                star.addEventListener('click', () => onClick(i));
+                star.addEventListener('click', () => {
+                    currentSelectedRating = i;
+                    onClick(i);
+                });
             }
             
             container.appendChild(star);
         }
         
         if (interactive) {
-            container.addEventListener('mouseleave', () => onHover(rating));
+            container.addEventListener('mouseleave', () => onHover(currentSelectedRating));
         }
         
         return container;
