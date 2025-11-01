@@ -14,13 +14,13 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, and e
 ## Screenshots
 
 ### Rating Items
-<img src="screenshots/image.png" alt="Rating Interface" width="800">
+<img src="screenshots/browser.png" alt="Rating Interface" width="800">
 
 ### Viewer Ratings Page
 <img src="screenshots/view user ratings.png" alt="Viewer Ratings Page" width="800">
 
 ### Mobile Support
-<img src="screenshots/mobile.png" alt="Mobile Interface" width="400">
+<img src="screenshots/mobile_app.png" alt="Mobile Interface" width="400">
 
 ---
 
