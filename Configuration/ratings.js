@@ -344,23 +344,31 @@
     }
 
     function seamlessPageRefresh(itemId, force = false) {
-        // Don't refresh if we're currently navigating or just navigated
-        // Unless forced (from final zero-size check)
-        if (!force && (isNavigating || (Date.now() - lastNavigationTime) < 2000)) {
-            console.log('[UserRatings] Skipping refresh - navigation in progress');
+        // Only refresh on details page
+        const currentHash = window.location.hash;
+        const currentUrl = window.location.href;
+        const isDetailsPage = currentHash.includes('#/details') || currentHash.includes('/details') || 
+                              currentUrl.includes('/details') || 
+                              (itemId && currentHash.includes(itemId));
+        
+        if (!isDetailsPage) {
+            console.log('[UserRatings] Skipping refresh - not on details page');
             return;
         }
         
-        console.log('[UserRatings] Attempting page refresh', force ? '(FORCED)' : '');
-        isNavigating = true;
-        lastNavigationTime = Date.now();
+        // Don't refresh if we recently refreshed (prevent loops)
+        // Unless forced (from final zero-size check)
+        if (!force && hasTriedRefresh) {
+            console.log('[UserRatings] Skipping refresh - already tried once');
+            return;
+        }
         
-        // Method 1: Use location.reload() with a slight delay for smoother experience
-        // This forces a full page reload which ensures everything refreshes properly
-        setTimeout(() => {
-            console.log('[UserRatings] Reloading page...');
-            window.location.reload();
-        }, 100);
+        console.log('[UserRatings] Performing hard page refresh', force ? '(FORCED)' : '');
+        hasTriedRefresh = true;
+        
+        // Hard refresh - reload the page completely
+        // This bypasses cache and reloads everything fresh
+        window.location.reload(true);
     }
 
     async function createRatingsUI(itemId) {
@@ -776,21 +784,13 @@
                 
                 // Check if zero size or was flagged during creation
                 if (hasZeroSize || hasZeroSizeFlag) {
-                    // Final check always forces refresh (bypasses navigation check)
+                    // Final check always forces refresh
                     const isFinalCheck = checkName === 'Final';
                     
-                    if (!isFinalCheck) {
-                        // Only block if we're actively navigating (not just injected)
-                        const recentlyNavigated = isNavigating && (Date.now() - lastNavigationTime) < 500;
-                        if (recentlyNavigated) {
-                            console.log('[UserRatings] Skipping refresh check - very recent navigation');
-                            return false;
-                        }
-                    } else {
-                        // For final check, clear navigation flags to allow refresh
+                    if (isFinalCheck) {
+                        // For final check, clear all flags to allow refresh
                         console.log('[UserRatings] Final check detected zero size - forcing refresh');
-                        isNavigating = false;
-                        lastNavigationTime = 0;
+                        hasTriedRefresh = false; // Allow refresh even if we tried before
                     }
                     
                     console.log('[UserRatings] UI has zero size, triggering refresh', isFinalCheck ? '(FORCED)' : '');
@@ -841,8 +841,15 @@
 
     // Monitor for UI that becomes zero-sized (page re-rendered)
     setInterval(() => {
-        // Don't check during navigation
-        if (isNavigating || (Date.now() - lastNavigationTime) < 2000) {
+        // Only check on details page
+        const currentHash = window.location.hash;
+        const isDetailsPage = currentHash.includes('#/details') || currentHash.includes('/details');
+        if (!isDetailsPage) {
+            return;
+        }
+        
+        // Don't check if we just tried to refresh (prevent loops)
+        if (hasTriedRefresh) {
             return;
         }
         
@@ -860,7 +867,6 @@
                         console.log('[UserRatings] UI became zero-sized, parent visible, triggering refresh');
                         ui.remove();
                         isInjecting = false;
-                        hasTriedRefresh = false;
                         seamlessPageRefresh(currentItemId);
                     }
                 }
@@ -892,20 +898,15 @@
                 ratingsTab.style.display = 'none';
             }
             
-            // Mark navigation state
-            isNavigating = true;
-            lastNavigationTime = Date.now();
-            
-            // Reset injection state
+            // Reset injection state (don't mark as navigating - let normal navigation proceed)
             isInjecting = false;
             injectionAttempts = 0;
             currentItemId = null;
             hasTriedRefresh = false; // Reset refresh flag for new page
             
-            // Clear navigation flag after a delay
-            setTimeout(() => {
-                isNavigating = false;
-            }, 1000);
+            // Clear navigation flags immediately - don't block navigation
+            isNavigating = false;
+            lastNavigationTime = 0;
             
             // Try injection with slight delay
             setTimeout(injectRatingsUI, 150);
@@ -994,20 +995,15 @@
             }
         }
         
-        // Mark navigation state
-        isNavigating = true;
-        lastNavigationTime = Date.now();
-        
-        // Reset injection state
+        // Reset injection state (don't mark as navigating - let normal navigation proceed)
         isInjecting = false;
         injectionAttempts = 0;
         currentItemId = null;
         hasTriedRefresh = false; // Reset refresh flag for new page
         
-        // Clear navigation flag after a delay
-        setTimeout(() => {
-            isNavigating = false;
-        }, 1000);
+        // Clear navigation flags immediately - don't block navigation
+        isNavigating = false;
+        lastNavigationTime = 0;
         
         // Try injection with multiple attempts
         setTimeout(injectRatingsUI, 100);
