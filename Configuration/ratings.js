@@ -672,6 +672,15 @@
             }
         }
         
+        // Check if container has dimensions (not collapsed)
+        if (targetContainer) {
+            const rect = targetContainer.getBoundingClientRect();
+            if (rect.height === 0 || rect.width === 0) {
+                console.log(`[UserRatings] Container found but collapsed (${rect.height}x${rect.width}), waiting for content...`);
+                targetContainer = null; // Treat as not ready
+            }
+        }
+        
         if (!targetContainer) {
             // If container not ready yet, retry with backoff
             if (injectionAttempts < maxInjectionAttempts) {
