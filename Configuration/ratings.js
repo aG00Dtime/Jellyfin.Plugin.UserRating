@@ -634,12 +634,41 @@
             return;
         }
         
-        // Check if UI already exists - if so, don't inject again
-        const existingUI = document.getElementById('user-ratings-ui');
-        if (existingUI) {
-            console.log('[UserRatings] UI already exists, skipping injection');
-            injectionAttempts = 0; // Reset attempts counter
+        // Get item ID from URL first
+        let itemId = null;
+        const urlParams = new URLSearchParams(window.location.search);
+        itemId = urlParams.get('id');
+        
+        if (!itemId && window.location.hash.includes('?')) {
+            const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
+            itemId = hashParams.get('id');
+        }
+        
+        if (!itemId) {
+            const guidMatch = window.location.href.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+            if (guidMatch) {
+                itemId = guidMatch[1];
+            }
+        }
+        
+        if (!itemId) {
+            console.log('[UserRatings] No item ID found');
+            injectionAttempts = 0;
             return;
+        }
+        
+        // Check if UI already exists - if for same item, skip; if different item, remove it
+        const existingUI = document.getElementById('user-ratings-ui');
+        if (existingUI && currentItemId === itemId) {
+            console.log('[UserRatings] UI already exists for this item, skipping');
+            injectionAttempts = 0;
+            return;
+        }
+        
+        // If UI exists for different item, remove it
+        if (existingUI && currentItemId !== itemId) {
+            console.log('[UserRatings] Removing UI for previous item');
+            existingUI.remove();
         }
         
         // Try multiple selector strategies to find the container
@@ -684,36 +713,6 @@
                 injectionAttempts = 0;
                 isInjecting = false; // Ensure flag is reset
             }
-            return;
-        }
-        
-        // Get item ID from URL
-        let itemId = null;
-        const urlParams = new URLSearchParams(window.location.search);
-        itemId = urlParams.get('id');
-        
-        if (!itemId && window.location.hash.includes('?')) {
-            const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
-            itemId = hashParams.get('id');
-        }
-        
-        if (!itemId) {
-            const guidMatch = window.location.href.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
-            if (guidMatch) {
-                itemId = guidMatch[1];
-            }
-        }
-        
-        if (!itemId) {
-            console.log('[UserRatings] No item ID found');
-            injectionAttempts = 0;
-            return;
-        }
-        
-        // Skip if it's the same item we just injected for
-        if (currentItemId === itemId && existingUI) {
-            console.log('[UserRatings] Same item, UI exists, skipping');
-            injectionAttempts = 0;
             return;
         }
         
