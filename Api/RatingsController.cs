@@ -4,7 +4,6 @@ using System.Net.Mime;
 using Jellyfin.Plugin.UserRatings.Data;
 using Jellyfin.Plugin.UserRatings.Models;
 using MediaBrowser.Common.Configuration;
-using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.UserRatings.Api
@@ -14,34 +13,21 @@ namespace Jellyfin.Plugin.UserRatings.Api
     public class RatingsController : ControllerBase
     {
         private readonly RatingRepository _repository;
-        private readonly IUserManager _userManager;
-        private readonly ILibraryManager _libraryManager;
 
-        public RatingsController(
-            IApplicationPaths appPaths, 
-            IUserManager userManager, 
-            ILibraryManager libraryManager)
+        public RatingsController(IApplicationPaths appPaths)
         {
             _repository = new RatingRepository(appPaths);
-            _userManager = userManager;
-            _libraryManager = libraryManager;
         }
 
         [HttpPost("Rate")]
         [Produces(MediaTypeNames.Application.Json)]
-        public ActionResult RateItem([FromQuery] Guid itemId, [FromQuery] Guid userId, [FromQuery] int rating, [FromQuery] string? note)
+        public ActionResult RateItem([FromQuery] Guid itemId, [FromQuery] Guid userId, [FromQuery] int rating, [FromQuery] string? note, [FromQuery] string? userName)
         {
             try
             {
                 if (rating < 1 || rating > 5)
                 {
                     return BadRequest(new { success = false, message = "Rating must be between 1 and 5" });
-                }
-
-                var user = _userManager.GetUserById(userId);
-                if (user == null)
-                {
-                    return BadRequest(new { success = false, message = "Invalid user" });
                 }
 
                 var userRating = new UserRating
@@ -51,7 +37,7 @@ namespace Jellyfin.Plugin.UserRatings.Api
                     Rating = rating,
                     Note = note,
                     Timestamp = DateTime.UtcNow,
-                    UserName = user.Username
+                    UserName = userName ?? "Unknown"
                 };
 
                 _repository.SaveRating(userRating);

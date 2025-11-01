@@ -257,7 +257,9 @@
     async function saveRating(itemId, rating, note) {
         try {
             const userId = ApiClient.getCurrentUserId();
-            const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&userId=${userId}&rating=${rating}${note ? '&note=' + encodeURIComponent(note) : ''}`);
+            const user = ApiClient.getCurrentUser();
+            const userName = user ? user.Name : 'Unknown';
+            const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&userId=${userId}&rating=${rating}${note ? '&note=' + encodeURIComponent(note) : ''}&userName=${encodeURIComponent(userName)}`);
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
