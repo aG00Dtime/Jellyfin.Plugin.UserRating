@@ -351,53 +351,16 @@
             return;
         }
         
-        console.log('[UserRatings] Attempting seamless page refresh', force ? '(FORCED)' : '');
+        console.log('[UserRatings] Attempting page refresh', force ? '(FORCED)' : '');
         isNavigating = true;
         lastNavigationTime = Date.now();
         
-        // Try Jellyfin's Dashboard.navigate if available (most seamless)
-        if (typeof Dashboard !== 'undefined' && Dashboard.navigate) {
-            const serverId = new URLSearchParams(window.location.search).get('serverId') || 
-                            (window.location.hash.includes('serverId=') ? 
-                                new URLSearchParams(window.location.hash.split('?')[1] || '').get('serverId') : 
-                                ApiClient.serverId());
-            
-            // Navigate to same page - Jellyfin will reload it
-            Dashboard.navigate(`details?id=${itemId}&serverId=${serverId}`);
-            setTimeout(() => { isNavigating = false; }, 2000);
-            return;
-        }
-        
-        // Fallback: Use hash manipulation (very fast, imperceptible)
-        // Extract serverId if present
-        let serverId = new URLSearchParams(window.location.search).get('serverId');
-        if (!serverId && window.location.hash.includes('serverId=')) {
-            const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
-            serverId = hashParams.get('serverId');
-        }
-        if (!serverId) {
-            serverId = ApiClient.serverId();
-        }
-        
-        // Create new hash with timestamp to force reload
-        const newHash = `#/details?id=${itemId}&serverId=${serverId}&_refresh=${Date.now()}`;
-        
-        // Temporarily change hash to trigger navigation
-        // Use requestAnimationFrame for smooth transition
-        requestAnimationFrame(() => {
-            window.location.hash = newHash;
-            // Reset state after navigation
-            setTimeout(() => {
-                injectionAttempts = 0;
-                isInjecting = false;
-                isNavigating = false;
-                // Remove the _refresh parameter from URL after navigation
-                if (window.location.hash.includes('_refresh=')) {
-                    const cleanHash = window.location.hash.replace(/[?&]_refresh=\d+/, '');
-                    window.history.replaceState(null, '', cleanHash + window.location.search);
-                }
-            }, 100);
-        });
+        // Method 1: Use location.reload() with a slight delay for smoother experience
+        // This forces a full page reload which ensures everything refreshes properly
+        setTimeout(() => {
+            console.log('[UserRatings] Reloading page...');
+            window.location.reload();
+        }, 100);
     }
 
     async function createRatingsUI(itemId) {
