@@ -56,10 +56,6 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 **Dashboard** → **Plugins** → **User Ratings**
 
-| Setting | Description |
-|---------|-------------|
-| **Enable Notifications** | Notify users when someone rates content (future feature) |
-| **Show Average on Items** | Display average rating on item pages (future feature) |
 
 ## Use Cases
 
