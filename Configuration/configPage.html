@@ -12,29 +12,7 @@
                     <h2>User Ratings Plugin</h2>
                     
                     <div class="fieldDescription" style="margin-bottom: 2em;">
-                        Allow users to rate movies, TV shows, and music. Ratings are visible to all users on the server.
-                    </div>
-
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label>
-                            <input id="chkEnableNotifications" name="chkEnableNotifications" type="checkbox" is="emby-checkbox" />
-                            <span>Enable Rating Notifications</span>
-                        </label>
-                        <div class="fieldDescription">Notify users when someone rates an item</div>
-                    </div>
-
-                    <div class="checkboxContainer checkboxContainer-withDescription">
-                        <label>
-                            <input id="chkShowAverageOnItems" name="chkShowAverageOnItems" type="checkbox" is="emby-checkbox" />
-                            <span>Show Average Rating on Items</span>
-                        </label>
-                        <div class="fieldDescription">Display average user rating on item pages</div>
-                    </div>
-
-                    <div>
-                        <button is="emby-button" type="submit" class="raised button-submit block">
-                            <span>Save</span>
-                        </button>
+                        Allow users to rate movies, TV shows, episodes, and music. Ratings and reviews are visible to all users on the server via the web interface.
                     </div>
 
                     <div style="margin-top: 2em; padding-top: 2em; border-top: 1px solid rgba(255, 255, 255, 0.1);">
@@ -48,16 +26,6 @@
                         <div id="deleteResult" style="display: none; margin-top: 1em; padding: 1em; border-radius: 4px;"></div>
                     </div>
 
-                    <div style="margin-top: 2em;">
-                        <h3>API Endpoints</h3>
-                        <div class="fieldDescription">
-                            <strong>Rate an item:</strong> POST /UserRatings/Rate?itemId=xxx&rating=5&note=Great!<br>
-                            <strong>Get item ratings:</strong> GET /UserRatings/Item/{itemId}<br>
-                            <strong>Get my rating:</strong> GET /UserRatings/MyRating/{itemId}<br>
-                            <strong>Get user ratings:</strong> GET /UserRatings/User/{userId}<br>
-                            <strong>Delete rating:</strong> DELETE /UserRatings/Rating?itemId=xxx
-                        </div>
-                    </div>
                 </form>
             </div>
         </div>
@@ -68,26 +36,7 @@
             };
 
             document.getElementById('UserRatingsConfigPage').addEventListener('pageshow', function () {
-                Dashboard.showLoadingMsg();
-                ApiClient.getPluginConfiguration(UserRatingsConfig.pluginUniqueId).then(function (config) {
-                    document.getElementById('chkEnableNotifications').checked = config.EnableNotifications;
-                    document.getElementById('chkShowAverageOnItems').checked = config.ShowAverageOnItems;
-                    Dashboard.hideLoadingMsg();
-                });
-            });
-
-            document.getElementById('UserRatingsConfigForm').addEventListener('submit', function (e) {
-                Dashboard.showLoadingMsg();
-                ApiClient.getPluginConfiguration(UserRatingsConfig.pluginUniqueId).then(function (config) {
-                    config.EnableNotifications = document.getElementById('chkEnableNotifications').checked;
-                    config.ShowAverageOnItems = document.getElementById('chkShowAverageOnItems').checked;
-                    
-                    ApiClient.updatePluginConfiguration(UserRatingsConfig.pluginUniqueId, config).then(function (result) {
-                        Dashboard.processPluginConfigurationUpdateResult(result);
-                    });
-                });
-                e.preventDefault();
-                return false;
+                // No configuration to load
             });
 
             document.getElementById('btnDeleteAllRatings').addEventListener('click', function () {
