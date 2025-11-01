@@ -14,6 +14,10 @@
             margin-top: 2em;
             margin-bottom: 2em;
             border: 1px solid rgba(255, 255, 255, 0.08);
+            box-sizing: border-box;
+        }
+        .user-ratings-container * {
+            box-sizing: border-box;
         }
         .user-ratings-header {
             font-size: 1.3em;
