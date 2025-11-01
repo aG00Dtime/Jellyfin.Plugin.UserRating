@@ -91,15 +91,52 @@
                         return;
                     }
                     
-                    // Inject the script
+                    // Inject the script permanently
                     const script = targetDoc.createElement('script');
                     script.id = scriptId;
-                    script.src = '/web/ConfigurationPage?name=ratings.js&v=' + Date.now();
+                    script.src = '/web/ConfigurationPage?name=ratings.js';
                     targetDoc.head.appendChild(script);
+                    
+                    // Store in localStorage so we know to inject on next page load
+                    try {
+                        localStorage.setItem('userRatingsEnabled', 'true');
+                    } catch (e) {
+                        console.warn('[UserRatings] Could not set localStorage:', e);
+                    }
                     
                     console.log('[UserRatings] Script injected into main page');
                 } catch (e) {
                     console.error('[UserRatings] Failed to inject script:', e);
+                }
+            })();
+            
+            // Also inject a bootstrap script that will auto-load the ratings script on every page
+            (function() {
+                try {
+                    const targetDoc = window.parent.document;
+                    const bootstrapId = 'user-ratings-bootstrap';
+                    
+                    if (targetDoc.getElementById(bootstrapId)) {
+                        return;
+                    }
+                    
+                    const bootstrap = targetDoc.createElement('script');
+                    bootstrap.id = bootstrapId;
+                    bootstrap.textContent = `
+                        (function() {
+                            if (localStorage.getItem('userRatingsEnabled') === 'true' && !document.getElementById('user-ratings-script')) {
+                                const script = document.createElement('script');
+                                script.id = 'user-ratings-script';
+                                script.src = '/web/ConfigurationPage?name=ratings.js';
+                                document.head.appendChild(script);
+                            }
+                        })();
+                    `;
+                    targetDoc.head.appendChild(bootstrap);
+                    
+                    console.log('[UserRatings] Bootstrap script injected');
+                } catch (e) {
+                    console.error('[UserRatings] Failed to inject bootstrap:', e);
                 }
             })();
         </script>

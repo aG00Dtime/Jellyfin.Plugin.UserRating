@@ -240,7 +240,8 @@
 
     async function loadMyRating(itemId) {
         try {
-            const response = await fetch(ApiClient.getUrl(`api/UserRatings/MyRating/${itemId}`), {
+            const userId = ApiClient.getCurrentUserId();
+            const response = await fetch(ApiClient.getUrl(`api/UserRatings/MyRating/${itemId}?userId=${userId}`), {
                 headers: {
                     'X-Emby-Token': ApiClient.accessToken()
                 }
@@ -255,7 +256,8 @@
 
     async function saveRating(itemId, rating, note) {
         try {
-            const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&rating=${rating}${note ? '&note=' + encodeURIComponent(note) : ''}`);
+            const userId = ApiClient.getCurrentUserId();
+            const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&userId=${userId}&rating=${rating}${note ? '&note=' + encodeURIComponent(note) : ''}`);
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -278,7 +280,8 @@
 
     async function deleteRating(itemId) {
         try {
-            const url = ApiClient.getUrl(`api/UserRatings/Rating?itemId=${itemId}`);
+            const userId = ApiClient.getCurrentUserId();
+            const url = ApiClient.getUrl(`api/UserRatings/Rating?itemId=${itemId}&userId=${userId}`);
             const response = await fetch(url, {
                 method: 'DELETE',
                 headers: {
