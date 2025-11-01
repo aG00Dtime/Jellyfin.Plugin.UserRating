@@ -225,6 +225,8 @@
     let currentRating = 0;
     let isInjecting = false; // Flag to prevent concurrent injections
     let hasTriedRefresh = false; // Flag to prevent infinite refresh loops
+    let isNavigating = false; // Flag to prevent refresh during navigation
+    let lastNavigationTime = 0; // Track when navigation occurred
 
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
@@ -342,11 +344,18 @@
     }
 
     function seamlessPageRefresh(itemId) {
+        // Don't refresh if we're currently navigating or just navigated
+        if (isNavigating || (Date.now() - lastNavigationTime) < 2000) {
+            console.log('[UserRatings] Skipping refresh - navigation in progress');
+            return;
+        }
+        
         console.log('[UserRatings] Attempting seamless page refresh');
+        isNavigating = true;
+        lastNavigationTime = Date.now();
         
         // Try Jellyfin's Dashboard.navigate if available (most seamless)
         if (typeof Dashboard !== 'undefined' && Dashboard.navigate) {
-            const currentHash = window.location.hash;
             const serverId = new URLSearchParams(window.location.search).get('serverId') || 
                             (window.location.hash.includes('serverId=') ? 
                                 new URLSearchParams(window.location.hash.split('?')[1] || '').get('serverId') : 
@@ -354,13 +363,11 @@
             
             // Navigate to same page - Jellyfin will reload it
             Dashboard.navigate(`details?id=${itemId}&serverId=${serverId}`);
+            setTimeout(() => { isNavigating = false; }, 2000);
             return;
         }
         
         // Fallback: Use hash manipulation (very fast, imperceptible)
-        const currentHash = window.location.hash;
-        const currentUrl = window.location.href;
-        
         // Extract serverId if present
         let serverId = new URLSearchParams(window.location.search).get('serverId');
         if (!serverId && window.location.hash.includes('serverId=')) {
@@ -382,6 +389,7 @@
             setTimeout(() => {
                 injectionAttempts = 0;
                 isInjecting = false;
+                isNavigating = false;
                 // Remove the _refresh parameter from URL after navigation
                 if (window.location.hash.includes('_refresh=')) {
                     const cleanHash = window.location.hash.replace(/[?&]_refresh=\d+/, '');
@@ -786,6 +794,12 @@
             // Check if UI has zero width/height (not actually rendered)
             // Wait a bit for browser to render
             setTimeout(() => {
+                // Don't check if we're navigating
+                if (isNavigating || (Date.now() - lastNavigationTime) < 1000) {
+                    isInjecting = false;
+                    return;
+                }
+                
                 const rect = ui.getBoundingClientRect();
                 const hasZeroSize = rect.width === 0 && rect.height === 0;
                 
@@ -813,6 +827,11 @@
 
     // Monitor for UI that becomes zero-sized (page re-rendered)
     setInterval(() => {
+        // Don't check during navigation
+        if (isNavigating || (Date.now() - lastNavigationTime) < 2000) {
+            return;
+        }
+        
         const ui = document.getElementById('user-ratings-ui');
         if (ui && currentItemId) {
             const rect = ui.getBoundingClientRect();
@@ -859,11 +878,20 @@
                 ratingsTab.style.display = 'none';
             }
             
+            // Mark navigation state
+            isNavigating = true;
+            lastNavigationTime = Date.now();
+            
             // Reset injection state
             isInjecting = false;
             injectionAttempts = 0;
             currentItemId = null;
             hasTriedRefresh = false; // Reset refresh flag for new page
+            
+            // Clear navigation flag after a delay
+            setTimeout(() => {
+                isNavigating = false;
+            }, 1000);
             
             // Try injection with slight delay
             setTimeout(injectRatingsUI, 150);
@@ -952,11 +980,20 @@
             }
         }
         
+        // Mark navigation state
+        isNavigating = true;
+        lastNavigationTime = Date.now();
+        
         // Reset injection state
         isInjecting = false;
         injectionAttempts = 0;
         currentItemId = null;
         hasTriedRefresh = false; // Reset refresh flag for new page
+        
+        // Clear navigation flag after a delay
+        setTimeout(() => {
+            isNavigating = false;
+        }, 1000);
         
         // Try injection with multiple attempts
         setTimeout(injectRatingsUI, 100);
