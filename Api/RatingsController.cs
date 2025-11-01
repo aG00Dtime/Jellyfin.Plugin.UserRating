@@ -164,6 +164,32 @@ namespace Jellyfin.Plugin.UserRatings.Api
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
+
+        [HttpGet("AllRatedItems")]
+        [Produces(MediaTypeNames.Application.Json)]
+        public ActionResult GetAllRatedItems()
+        {
+            try
+            {
+                var ratedItems = _repository.GetAllRatedItems();
+
+                return Ok(new
+                {
+                    success = true,
+                    items = ratedItems.Select(item => new
+                    {
+                        itemId = item.ItemId,
+                        averageRating = item.AverageRating,
+                        totalRatings = item.TotalRatings,
+                        lastRated = item.LastRated
+                    })
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
     }
 }
 

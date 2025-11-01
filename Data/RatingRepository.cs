@@ -132,6 +132,24 @@ namespace Jellyfin.Plugin.UserRatings.Data
                 SaveRatings();
             }
         }
+
+        public List<RatedItemSummary> GetAllRatedItems()
+        {
+            lock (_lock)
+            {
+                return _ratings.Values
+                    .GroupBy(r => r.ItemId)
+                    .Select(g => new RatedItemSummary
+                    {
+                        ItemId = g.Key,
+                        AverageRating = g.Average(r => r.Rating),
+                        TotalRatings = g.Count(),
+                        LastRated = g.Max(r => r.Timestamp)
+                    })
+                    .OrderByDescending(s => s.LastRated)
+                    .ToList();
+            }
+        }
     }
 }
 
