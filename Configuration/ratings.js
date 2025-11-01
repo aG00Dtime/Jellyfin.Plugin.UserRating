@@ -611,7 +611,7 @@
     }
 
     let injectionAttempts = 0;
-    const maxInjectionAttempts = 20;
+    const maxInjectionAttempts = 30; // Increased from 20
     
     function injectRatingsUI() {
         // Prevent concurrent injections
@@ -628,19 +628,47 @@
             return;
         }
         
-        // Find the detailPagePrimaryContent container
-        const targetContainer = document.querySelector('.detailPagePrimaryContent .detailSection');
+        // Try multiple selector strategies to find the container
+        let targetContainer = null;
+        
+        // Strategy 1: Look for .detailSection inside .detailPagePrimaryContent
+        targetContainer = document.querySelector('.detailPagePrimaryContent .detailSection');
+        
+        // Strategy 2: Look for .detailPagePrimaryContent itself
+        if (!targetContainer) {
+            const primaryContent = document.querySelector('.detailPagePrimaryContent');
+            if (primaryContent) {
+                // Check if it has children (content loaded)
+                if (primaryContent.children.length > 0) {
+                    targetContainer = primaryContent;
+                }
+            }
+        }
+        
+        // Strategy 3: Look for any detail section
+        if (!targetContainer) {
+            targetContainer = document.querySelector('.detailSection');
+        }
+        
+        // Strategy 4: Look for itemDetailPage
+        if (!targetContainer) {
+            const detailPage = document.querySelector('.itemDetailPage .detailPageContent');
+            if (detailPage) {
+                targetContainer = detailPage;
+            }
+        }
         
         if (!targetContainer) {
             // If container not ready yet, retry with backoff
             if (injectionAttempts < maxInjectionAttempts) {
                 injectionAttempts++;
-                const retryDelay = Math.min(100 * injectionAttempts, 2000); // Exponential backoff up to 2s
-                console.log(`[UserRatings] Container not ready, retry ${injectionAttempts}/${maxInjectionAttempts} in ${retryDelay}ms`);
+                const retryDelay = Math.min(100 * Math.pow(1.5, injectionAttempts), 3000); // Better exponential backoff
+                console.log(`[UserRatings] Container not ready, retry ${injectionAttempts}/${maxInjectionAttempts} in ${retryDelay.toFixed(0)}ms`);
                 setTimeout(injectRatingsUI, retryDelay);
             } else {
                 console.log('[UserRatings] Max injection attempts reached, giving up');
                 injectionAttempts = 0;
+                isInjecting = false; // Ensure flag is reset
             }
             return;
         }
@@ -678,22 +706,26 @@
         currentItemId = itemId;
         isInjecting = true;
         injectionAttempts = 0; // Reset counter on successful injection
-        console.log('[UserRatings] Injecting UI for item:', itemId);
+        console.log('[UserRatings] Injecting UI for item:', itemId, 'into container:', targetContainer.className);
         
-        // Create and inject UI at the end of detailSection
+        // Create and inject UI at the end of target container
         createRatingsUI(itemId).then(ui => {
             targetContainer.appendChild(ui);
             isInjecting = false;
+            console.log('[UserRatings] ✓ UI injected successfully');
         }).catch(err => {
             console.error('[UserRatings] Error creating UI:', err);
             isInjecting = false;
+            injectionAttempts = 0; // Reset so it can try again
         });
     }
 
-    // Watch for page changes
+    // Watch for page changes with more aggressive detection
     let lastUrl = location.href;
-    new MutationObserver(() => {
+    new MutationObserver((mutations) => {
         const url = location.href;
+        
+        // Check if URL changed
         if (url !== lastUrl) {
             lastUrl = url;
             
@@ -707,7 +739,6 @@
             // Hide ratings tab when navigating away from home
             const ratingsTab = document.querySelector('#ratingsTab');
             if (ratingsTab && !url.includes('#/home')) {
-                console.log('[UserRatings] Hiding ratings tab on navigation away from home');
                 ratingsTab.classList.remove('is-active');
                 ratingsTab.style.display = 'none';
             }
@@ -716,13 +747,49 @@
             isInjecting = false;
             injectionAttempts = 0;
             
-            // Try injection immediately
-            setTimeout(injectRatingsUI, 100);
+            // Try injection with slight delay
+            setTimeout(injectRatingsUI, 150);
+            return;
+        }
+        
+        // Even if URL didn't change, check if detail page content appeared
+        // This handles cases where the page loads but URL was already set
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType === 1) { // Element node
+                    // Check if a detail page container was added
+                    if (node.classList && (
+                        node.classList.contains('detailPagePrimaryContent') ||
+                        node.classList.contains('detailSection') ||
+                        node.classList.contains('itemDetailPage')
+                    )) {
+                        console.log('[UserRatings] Detail page container detected, triggering injection');
+                        isInjecting = false;
+                        injectionAttempts = 0;
+                        setTimeout(injectRatingsUI, 100);
+                        return;
+                    }
+                    // Also check children
+                    if (node.querySelector && (
+                        node.querySelector('.detailPagePrimaryContent') ||
+                        node.querySelector('.detailSection') ||
+                        node.querySelector('.itemDetailPage')
+                    )) {
+                        console.log('[UserRatings] Detail page content detected in mutation, triggering injection');
+                        isInjecting = false;
+                        injectionAttempts = 0;
+                        setTimeout(injectRatingsUI, 100);
+                        return;
+                    }
+                }
+            }
         }
     }).observe(document.body, { subtree: true, childList: true });
 
-    // Initial injection - start immediately with retry logic
-    injectRatingsUI();
+    // Initial injection - start with multiple attempts at different intervals
+    setTimeout(injectRatingsUI, 100);
+    setTimeout(injectRatingsUI, 300);
+    setTimeout(injectRatingsUI, 600);
     
     // Also check on hash change
     window.addEventListener('hashchange', () => {
@@ -771,8 +838,9 @@
         isInjecting = false;
         injectionAttempts = 0;
         
-        // Try injection immediately
+        // Try injection with multiple attempts
         setTimeout(injectRatingsUI, 100);
+        setTimeout(injectRatingsUI, 300);
     });
 
     // Function to display ratings list in the home page content area
