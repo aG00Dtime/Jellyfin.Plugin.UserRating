@@ -6,6 +6,7 @@
     "overview": "Social rating system for Jellyfin - rate content and see ratings from other users on your server",
     "owner": "davidhenry",
     "category": "General",
+    "imageUrl": "https://raw.githubusercontent.com/aG00Dtime/Jellyfin.Plugin.UserRating/main/icon.png",
     "versions": [
       {
         "version": "1.3.3.0",

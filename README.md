@@ -67,7 +67,6 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 **Family Server**
 - See what family members think before watching
-- Find highly-rated content quickly
 - Share opinions about shows and episodes
 
 **Friend Group**
@@ -75,10 +74,6 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 - "Mom: 3/5 - Too violent for me"
 - Average: 4.2/5 stars from 3 users
 
-**Movie Club**
-- Track what everyone has watched and rated
-- Compare tastes and preferences
-- Discover new content based on friend ratings
 
 ## License
 

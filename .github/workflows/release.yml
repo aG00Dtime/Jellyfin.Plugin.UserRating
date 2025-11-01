@@ -69,6 +69,7 @@ jobs:
             "overview": "Social rating system for Jellyfin - rate content and see ratings from other users on your server",
             "owner": "davidhenry",
             "category": "General",
+            "imageUrl": "https://raw.githubusercontent.com/${{ github.repository }}/main/icon.png",
             "versions": [
               {
                 "version": "$VERSION.0",
