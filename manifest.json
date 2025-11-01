@@ -8,12 +8,12 @@
     "category": "General",
     "versions": [
       {
-        "version": "1.0.8.0",
-        "changelog": "Release 1.0.8",
+        "version": "1.0.9.0",
+        "changelog": "Release 1.0.9",
         "targetAbi": "10.9.0.0",
-        "sourceUrl": "https://github.com/aG00Dtime/Jellyfin.Plugin.UserRating/releases/download/v1.0.8/Jellyfin.Plugin.UserRatings.zip",
-        "checksum": "8907bde60ab4f145ae8cfb0134a1d02c",
-        "timestamp": "2025-11-01T01:47:00Z"
+        "sourceUrl": "https://github.com/aG00Dtime/Jellyfin.Plugin.UserRating/releases/download/v1.0.9/Jellyfin.Plugin.UserRatings.zip",
+        "checksum": "71ac76fefa3f1899ecac2c3c47135a57",
+        "timestamp": "2025-11-01T01:48:00Z"
       }
     ]
   }
