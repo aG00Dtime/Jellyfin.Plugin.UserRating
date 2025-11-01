@@ -341,6 +341,7 @@
     }
 
     async function createRatingsUI(itemId) {
+        console.log('[UserRatings] → createRatingsUI started for:', itemId);
         const container = document.createElement('div');
         container.className = 'user-ratings-container';
         container.id = 'user-ratings-ui';
@@ -348,12 +349,14 @@
         // Get item name for personalized heading
         let itemName = 'this item';
         try {
+            console.log('[UserRatings] → Loading item details...');
             const itemDetails = await ApiClient.getItem(ApiClient.getCurrentUserId(), itemId);
             if (itemDetails && itemDetails.Name) {
                 itemName = itemDetails.Name;
             }
+            console.log('[UserRatings] → Item details loaded:', itemName);
         } catch (error) {
-            console.log('[UserRatings] Could not load item name');
+            console.log('[UserRatings] Could not load item name:', error);
         }
         
         // Header
@@ -512,7 +515,9 @@
         container.appendChild(allRatingsSection);
         
         // Load existing rating
+        console.log('[UserRatings] → Loading my rating...');
         const myRating = await loadMyRating(itemId);
+        console.log('[UserRatings] → My rating loaded:', myRating);
         if (myRating && myRating.rating) {
             currentRating = myRating.rating;
             updateStarDisplay(starContainer, myRating.rating);
@@ -525,20 +530,28 @@
         }
         
         // Load all ratings
+        console.log('[UserRatings] → Loading all ratings...');
         await displayAllRatings(itemId, container);
+        console.log('[UserRatings] → All ratings loaded, returning container');
         
         return container;
     }
 
     async function displayAllRatings(itemId, container) {
+        console.log('[UserRatings] → displayAllRatings started');
         const allRatingsSection = container.querySelector('#all-ratings-section');
         const avgDisplay = container.querySelector('#ratings-average-display');
         
-        if (!allRatingsSection) return;
+        if (!allRatingsSection) {
+            console.log('[UserRatings] → No allRatingsSection found, returning early');
+            return;
+        }
         
         allRatingsSection.innerHTML = '';
         
+        console.log('[UserRatings] → Calling loadRatings...');
         const data = await loadRatings(itemId);
+        console.log('[UserRatings] → loadRatings returned, processing data...');
         const ratings = data.ratings || [];
         const averageRating = data.averageRating || 0;
         const totalRatings = data.totalRatings || 0;
@@ -608,6 +621,7 @@
             
             allRatingsSection.appendChild(item);
         });
+        console.log('[UserRatings] → displayAllRatings completed');
     }
 
     let injectionAttempts = 0;
