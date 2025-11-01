@@ -11,6 +11,12 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 ---
 
+## Screenshot
+
+![User Ratings Interface](screenshots/image.png)
+
+---
+
 ## Features
 
 - ⭐ Rate any content 1-5 stars
@@ -38,7 +44,7 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 1. Open Jellyfin in a **web browser** (desktop or mobile)
 2. Navigate to any **movie, TV show, episode, or music** item detail page
-3. The **User Ratings** section appears at the top of the page
+3. Scroll down - the **User Ratings** section appears at the bottom of the detail section
 4. **Rate with 1-5 stars** by clicking the stars
 5. Optionally **add a note** to share your thoughts
 6. Click **Save Rating**

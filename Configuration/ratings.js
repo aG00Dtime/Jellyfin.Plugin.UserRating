@@ -521,8 +521,8 @@
             existingUI.remove();
         }
         
-        // Find the detailPageSecondaryContainer
-        const targetContainer = document.querySelector('.detailPageSecondaryContainer .detailPageContent');
+        // Find the detailPagePrimaryContent container
+        const targetContainer = document.querySelector('.detailPagePrimaryContent .detailSection');
         
         if (!targetContainer) {
             console.log('[UserRatings] Target container not found');
@@ -554,9 +554,9 @@
         currentItemId = itemId;
         console.log('[UserRatings] Injecting UI for item:', itemId);
         
-        // Create and inject UI
+        // Create and inject UI at the end of detailSection
         createRatingsUI(itemId).then(ui => {
-            targetContainer.insertBefore(ui, targetContainer.firstChild);
+            targetContainer.appendChild(ui);
         });
     }
 
