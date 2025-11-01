@@ -224,6 +224,7 @@
     let currentItemId = null;
     let currentRating = 0;
     let isInjecting = false; // Flag to prevent concurrent injections
+    let hasTriedRefresh = false; // Flag to prevent infinite refresh loops
 
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
@@ -338,6 +339,56 @@
             console.error('[UserRatings] Error deleting rating:', error);
             return { success: false, message: error.message };
         }
+    }
+
+    function seamlessPageRefresh(itemId) {
+        console.log('[UserRatings] Attempting seamless page refresh');
+        
+        // Try Jellyfin's Dashboard.navigate if available (most seamless)
+        if (typeof Dashboard !== 'undefined' && Dashboard.navigate) {
+            const currentHash = window.location.hash;
+            const serverId = new URLSearchParams(window.location.search).get('serverId') || 
+                            (window.location.hash.includes('serverId=') ? 
+                                new URLSearchParams(window.location.hash.split('?')[1] || '').get('serverId') : 
+                                ApiClient.serverId());
+            
+            // Navigate to same page - Jellyfin will reload it
+            Dashboard.navigate(`details?id=${itemId}&serverId=${serverId}`);
+            return;
+        }
+        
+        // Fallback: Use hash manipulation (very fast, imperceptible)
+        const currentHash = window.location.hash;
+        const currentUrl = window.location.href;
+        
+        // Extract serverId if present
+        let serverId = new URLSearchParams(window.location.search).get('serverId');
+        if (!serverId && window.location.hash.includes('serverId=')) {
+            const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+            serverId = hashParams.get('serverId');
+        }
+        if (!serverId) {
+            serverId = ApiClient.serverId();
+        }
+        
+        // Create new hash with timestamp to force reload
+        const newHash = `#/details?id=${itemId}&serverId=${serverId}&_refresh=${Date.now()}`;
+        
+        // Temporarily change hash to trigger navigation
+        // Use requestAnimationFrame for smooth transition
+        requestAnimationFrame(() => {
+            window.location.hash = newHash;
+            // Reset state after navigation
+            setTimeout(() => {
+                injectionAttempts = 0;
+                isInjecting = false;
+                // Remove the _refresh parameter from URL after navigation
+                if (window.location.hash.includes('_refresh=')) {
+                    const cleanHash = window.location.hash.replace(/[?&]_refresh=\d+/, '');
+                    window.history.replaceState(null, '', cleanHash + window.location.search);
+                }
+            }, 100);
+        });
     }
 
     async function createRatingsUI(itemId) {
@@ -709,9 +760,16 @@
                 console.log(`[UserRatings] Container not ready, retry ${injectionAttempts}/${maxInjectionAttempts} in ${retryDelay.toFixed(0)}ms`);
                 setTimeout(injectRatingsUI, retryDelay);
             } else {
-                console.log('[UserRatings] Max injection attempts reached, giving up');
-                injectionAttempts = 0;
-                isInjecting = false; // Ensure flag is reset
+                console.log('[UserRatings] Max injection attempts reached, attempting seamless refresh');
+                
+                // Try seamless refresh - only once per page load
+                if (!hasTriedRefresh && itemId) {
+                    hasTriedRefresh = true;
+                    seamlessPageRefresh(itemId);
+                } else {
+                    injectionAttempts = 0;
+                    isInjecting = false;
+                }
             }
             return;
         }
@@ -724,8 +782,28 @@
         // Create and inject UI at the end of target container
         createRatingsUI(itemId).then(ui => {
             targetContainer.appendChild(ui);
-            isInjecting = false;
-            console.log('[UserRatings] ✓ UI injected successfully');
+            
+            // Check if UI has zero width/height (not actually rendered)
+            // Wait a bit for browser to render
+            setTimeout(() => {
+                const rect = ui.getBoundingClientRect();
+                const hasZeroSize = rect.width === 0 && rect.height === 0;
+                
+                if (hasZeroSize) {
+                    console.log('[UserRatings] UI has zero size, triggering refresh');
+                    const injectedUI = document.getElementById('user-ratings-ui');
+                    if (injectedUI) {
+                        injectedUI.remove();
+                    }
+                    isInjecting = false;
+                    hasTriedRefresh = false; // Allow refresh to be tried
+                    seamlessPageRefresh(itemId);
+                } else {
+                    isInjecting = false;
+                    hasTriedRefresh = false; // Reset on success so refresh can be tried again if UI disappears
+                    console.log('[UserRatings] ✓ UI injected successfully (size:', rect.width, 'x', rect.height, ')');
+                }
+            }, 100); // Small delay to allow browser to render
         }).catch(err => {
             console.error('[UserRatings] Error creating UI:', err);
             isInjecting = false;
@@ -733,8 +811,33 @@
         });
     }
 
+    // Monitor for UI that becomes zero-sized (page re-rendered)
+    setInterval(() => {
+        const ui = document.getElementById('user-ratings-ui');
+        if (ui && currentItemId) {
+            const rect = ui.getBoundingClientRect();
+            // Check if UI exists but has zero size (hidden or not rendered)
+            if (rect.width === 0 && rect.height === 0) {
+                // Check if parent container still exists and is visible
+                const parent = ui.parentElement;
+                if (parent) {
+                    const parentRect = parent.getBoundingClientRect();
+                    // If parent is visible but UI is not, trigger refresh
+                    if (parentRect.width > 0 || parentRect.height > 0) {
+                        console.log('[UserRatings] UI became zero-sized, parent visible, triggering refresh');
+                        ui.remove();
+                        isInjecting = false;
+                        hasTriedRefresh = false;
+                        seamlessPageRefresh(currentItemId);
+                    }
+                }
+            }
+        }
+    }, 2000); // Check every 2 seconds
+    
     // Watch for page changes with more aggressive detection
     let lastUrl = location.href;
+    let lastCheckedItemId = null;
     new MutationObserver((mutations) => {
         const url = location.href;
         
@@ -759,6 +862,8 @@
             // Reset injection state
             isInjecting = false;
             injectionAttempts = 0;
+            currentItemId = null;
+            hasTriedRefresh = false; // Reset refresh flag for new page
             
             // Try injection with slight delay
             setTimeout(injectRatingsUI, 150);
@@ -850,6 +955,8 @@
         // Reset injection state
         isInjecting = false;
         injectionAttempts = 0;
+        currentItemId = null;
+        hasTriedRefresh = false; // Reset refresh flag for new page
         
         // Try injection with multiple attempts
         setTimeout(injectRatingsUI, 100);
