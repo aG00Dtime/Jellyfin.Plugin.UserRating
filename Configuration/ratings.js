@@ -6,21 +6,6 @@
     // CSS for inline ratings UI
     const style = document.createElement('style');
     style.textContent = `
-        #ratingsTab .itemsContainer.vertical-wrap {
-            display: grid !important;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
-            gap: 1em !important;
-        }
-        @media (min-width: 768px) {
-            #ratingsTab .itemsContainer.vertical-wrap {
-                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
-            }
-        }
-        @media (min-width: 1200px) {
-            #ratingsTab .itemsContainer.vertical-wrap {
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
-            }
-        }
         .user-ratings-container {
             background: rgba(0, 0, 0, 0.15);
             backdrop-filter: blur(10px);
