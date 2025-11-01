@@ -6,6 +6,21 @@
     // CSS for inline ratings UI
     const style = document.createElement('style');
     style.textContent = `
+        #ratingsTab .itemsContainer.vertical-wrap {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+            gap: 1em !important;
+        }
+        @media (min-width: 768px) {
+            #ratingsTab .itemsContainer.vertical-wrap {
+                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+            }
+        }
+        @media (min-width: 1200px) {
+            #ratingsTab .itemsContainer.vertical-wrap {
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)) !important;
+            }
+        }
         .user-ratings-container {
             background: rgba(0, 0, 0, 0.15);
             backdrop-filter: blur(10px);
@@ -793,6 +808,16 @@
                 item.lastRatedTimestamp = ratingInfo?.lastRated || 0;
             });
 
+            // Get plugin configuration
+            let recentItemsLimit = 10;
+            try {
+                const pluginConfig = await ApiClient.getPluginConfiguration('b8c5d3e7-4f6a-8b9c-1d2e-3f4a5b6c7d8e');
+                recentItemsLimit = pluginConfig.RecentlyRatedItemsCount || 10;
+                console.log('[UserRatings] Using configured recent items limit:', recentItemsLimit);
+            } catch (error) {
+                console.warn('[UserRatings] Could not load config, using default limit of 10');
+            }
+
             // Categorize items by type
             const movies = itemsWithDetails.filter(item => item.details.Type === 'Movie');
             const series = itemsWithDetails.filter(item => item.details.Type === 'Series');
@@ -800,11 +825,16 @@
 
             console.log('[UserRatings] Categorized items - Movies:', movies.length, 'Series:', series.length, 'Episodes:', episodes.length);
 
-            // Sort each category by most recently rated
+            // Sort each category by most recently rated and limit to configured count
             const sortByRecent = (a, b) => (b.lastRatedTimestamp || 0) - (a.lastRatedTimestamp || 0);
             movies.sort(sortByRecent);
             series.sort(sortByRecent);
             episodes.sort(sortByRecent);
+            
+            // Slice to show only configured number of recent items
+            const recentMovies = movies.slice(0, recentItemsLimit);
+            const recentSeries = series.slice(0, recentItemsLimit);
+            const recentEpisodes = episodes.slice(0, recentItemsLimit);
 
             // Function to build the ratings grid HTML for a category
             const buildCategoryGrid = (items) => items.map(item => {
@@ -848,40 +878,40 @@
             // Build sections HTML matching native Jellyfin structure with explicit spacing
             let sectionsHTML = '<div class="readOnlyContent" style="padding-top: 4em;">';
             
-            if (movies.length > 0) {
+            if (recentMovies.length > 0) {
                 sectionsHTML += `
                     <div class="verticalSection">
                         <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
                             <h2 class="sectionTitle sectionTitle-cards">Recently Rated Movies</h2>
                         </div>
                         <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
-                            ${buildCategoryGrid(movies)}
+                            ${buildCategoryGrid(recentMovies)}
                         </div>
                     </div>
                 `;
             }
             
-            if (series.length > 0) {
+            if (recentSeries.length > 0) {
                 sectionsHTML += `
                     <div class="verticalSection">
                         <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
                             <h2 class="sectionTitle sectionTitle-cards">Recently Rated Shows</h2>
                         </div>
                         <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
-                            ${buildCategoryGrid(series)}
+                            ${buildCategoryGrid(recentSeries)}
                         </div>
                     </div>
                 `;
             }
             
-            if (episodes.length > 0) {
+            if (recentEpisodes.length > 0) {
                 sectionsHTML += `
                     <div class="verticalSection">
                         <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
                             <h2 class="sectionTitle sectionTitle-cards">Recently Rated Episodes</h2>
                         </div>
                         <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
-                            ${buildCategoryGrid(episodes)}
+                            ${buildCategoryGrid(recentEpisodes)}
                         </div>
                     </div>
                 `;
@@ -907,8 +937,20 @@
                     case 'recent':
                         allItems.sort((a, b) => (b.lastRatedTimestamp || 0) - (a.lastRatedTimestamp || 0));
                         break;
-                    case 'title':
+                    case 'oldest':
+                        allItems.sort((a, b) => (a.lastRatedTimestamp || 0) - (b.lastRatedTimestamp || 0));
+                        break;
+                    case 'title-asc':
                         allItems.sort((a, b) => (a.details.Name || '').localeCompare(b.details.Name || ''));
+                        break;
+                    case 'title-desc':
+                        allItems.sort((a, b) => (b.details.Name || '').localeCompare(a.details.Name || ''));
+                        break;
+                    case 'count-desc':
+                        allItems.sort((a, b) => b.totalRatings - a.totalRatings);
+                        break;
+                    case 'count-asc':
+                        allItems.sort((a, b) => a.totalRatings - b.totalRatings);
                         break;
                 }
                 
@@ -958,10 +1000,14 @@
                 if (sortBtn) {
                     sortBtn.addEventListener('click', () => {
                         const sortOptions = [
-                            { value: 'rating-desc', label: 'Highest Rated', icon: 'star' },
-                            { value: 'rating-asc', label: 'Lowest Rated', icon: 'star_outline' },
+                            { value: 'rating-desc', label: 'Rating: High to Low', icon: 'star' },
+                            { value: 'rating-asc', label: 'Rating: Low to High', icon: 'star_outline' },
+                            { value: 'title-asc', label: 'Title: A-Z', icon: 'sort_by_alpha' },
+                            { value: 'title-desc', label: 'Title: Z-A', icon: 'sort_by_alpha' },
                             { value: 'recent', label: 'Recently Rated', icon: 'schedule' },
-                            { value: 'title', label: 'Title (A-Z)', icon: 'sort_by_alpha' }
+                            { value: 'oldest', label: 'Oldest Rated', icon: 'history' },
+                            { value: 'count-desc', label: 'Most Ratings', icon: 'people' },
+                            { value: 'count-asc', label: 'Least Ratings', icon: 'person' }
                         ];
                         
                         require(['actionsheet'], (actionsheet) => {
