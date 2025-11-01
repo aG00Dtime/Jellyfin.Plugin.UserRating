@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Jellyfin 10.9.0+](https://img.shields.io/badge/Jellyfin-10.9.0%2B-blue)](https://jellyfin.org/)
 
-A social rating system for Jellyfin that lets users rate movies, TV shows, episodes, and music, then see what other users on the server think!
+A social rating system for Jellyfin that lets users rate movies, TV shows, and episodes, then browse and discover what other users on the server think through a dedicated ratings viewer with smart filtering and sorting.
 
 > **Note:** Currently supports **web UI only**. 
 
@@ -13,10 +13,14 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 ## Screenshots
 
-### Desktop/Web Browser
-![User Ratings Interface - Desktop](screenshots/image.png)
+### Rating Items
+<img src="screenshots/image.png" alt="Rating Interface" width="800">
 
+### Viewer Ratings Page
+<img src="screenshots/view user ratings.png" alt="Viewer Ratings Page" width="800">
 
+### Mobile Support
+<img src="screenshots/mobile.png" alt="Mobile Interface" width="400">
 
 ---
 
@@ -24,9 +28,16 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 - ⭐ Rate any content 1-5 stars
 - 👥 See ratings from other users on your server
-- 📊 Average ratings displayed automatically
+- 📊 Average ratings displayed automatically with total rating counts
 - 💬 Optional notes/comments with ratings
-- 📺 Works on movies, TV shows, episodes, and music
+- 📺 Works on movies, TV shows, and episodes
+- 🎬 **Viewer Ratings Page** - Dedicated browsing interface with:
+  - 📋 Recently Rated sections (Movies, Shows, Episodes)
+  - 🔢 Paginated "All Rated Items" view (24 items per page)
+  - 🔄 8 sorting options: Rating (High/Low), Title (A-Z/Z-A), Recently/Oldest Rated, Most/Least Ratings
+  - ⚙️ Configurable limit for recently rated items (5-50)
+  - 🖼️ Native Jellyfin card styling with clickable navigation
+  - 📺 Smart thumbnails (episodes show series posters)
 - 🌐 Web interface support (desktop & mobile browsers)
 
 ## Installation
@@ -45,15 +56,29 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 ## Usage
 
+### Rating Items
+
 1. Open Jellyfin in a **web browser** (desktop or mobile)
-2. Navigate to any **movie, TV show, episode, or music** item detail page
-3. Scroll down - the **User Ratings** section appears at the bottom of the detail section
+2. Navigate to any **movie, TV show, or episode** detail page
+3. Scroll down - the **User Ratings** section appears at the bottom
 4. **Rate with 1-5 stars** by clicking the stars
 5. Optionally **add a note** to share your thoughts
 6. Click **Save Rating**
 7. See **all ratings** from other users below your rating!
 
-### Features
+### Browsing Ratings (Viewer Ratings Page)
+
+1. Go to **Dashboard** → **Plugins** → **User Ratings** → **View Ratings** tab
+2. Browse **Recently Rated** sections for Movies, Shows, and Episodes
+3. Scroll to **All Rated Items** for the complete paginated list
+4. Use the **dropdown menu** to sort by:
+   - Rating: High to Low / Low to High
+   - Title: A-Z / Z-A
+   - Recently Rated / Oldest Rated
+   - Most Ratings / Least Ratings
+5. Click any card to navigate to that item's detail page
+
+### Rating Features
 
 - ⭐ **Your rating** - visible stars you can click to change
 - 📝 **Optional notes** - add comments with your rating
@@ -63,19 +88,27 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 ## Configuration
 
-**Dashboard** → **Plugins** → **User Ratings**
+**Dashboard** → **Plugins** → **User Ratings** → **Settings**
+
+### Available Settings
+
+- **Recently Rated Items Count** (5-50, default: 10)
+  - Controls how many items appear in each "Recently Rated" section (Movies, Shows, Episodes)
+  - The "All Rated Items" section remains paginated at 24 items per page
 
 
 ## Use Cases
 
 **Family Server**
-- See what family members think before watching
-- Share opinions about shows and episodes
+- Browse the Viewer Ratings page to see what family members are watching and enjoying
+- Check ratings before picking your next movie night selection
+- See trending content based on recent ratings
 
 **Friend Group**
-- "Dad rated Breaking Bad S01E01 5 stars - Amazing pilot!"
-- "Mom: 3/5 - Too violent for me"
-- Average: 4.2/5 stars from 3 users
+- Discover highly-rated content through the sorted "All Rated Items" view
+- Track what everyone's been watching in the Recently Rated sections
+- Compare opinions: "Dad rated Breaking Bad 5 stars, Mom gave it 3 stars"
+- Share detailed thoughts with optional rating notes
 
 
 ## License

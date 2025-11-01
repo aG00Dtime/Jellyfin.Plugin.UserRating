@@ -34,102 +34,130 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
         .user-ratings-section-title {
-            font-size: 1.1em;
-            margin-bottom: 0.75em;
-            color: #00a4dc;
-            font-weight: 500;
+            font-size: 1.3em;
+            margin-bottom: 0.3em;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .user-ratings-section-subtitle {
+            font-size: 0.95em;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 1em;
         }
         .rating-form-row {
-            display: flex;
-            gap: 1em;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            margin-top: 1em;
-            padding-right: 0.5em;
+            display: block;
+            margin-top: 0.5em;
         }
-        .rating-form-col {
-            flex: 1;
-            min-width: 200px;
+        .rating-form-section {
+            margin-bottom: 2em;
+        }
+        .star-rating-container {
+            display: flex;
+            align-items: center;
+            gap: 1em;
+            margin-bottom: 0.5em;
         }
         .star-rating {
             display: inline-flex;
-            gap: 0.25em;
+            gap: 0.3em;
             cursor: pointer;
-            font-size: 1.8em;
-            margin-bottom: 0.5em;
+            font-size: 2.2em;
         }
         .star-rating .star {
-            color: #555;
-            transition: color 0.2s, transform 0.1s;
+            color: rgba(255, 255, 255, 0.15);
+            transition: color 0.2s, transform 0.15s;
             cursor: pointer;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
         }
         .star-rating .star.filled {
             color: #ffd700;
         }
         .star-rating .star:hover {
             color: #ffed4e;
-            transform: scale(1.1);
+            transform: scale(1.15);
+        }
+        .rating-prompt {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9em;
         }
         .rating-note-input {
             width: 100%;
-            padding: 0.8em 1em;
+            padding: 1em 1.2em;
             background: rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
             color: white;
             font-size: 0.95em;
             font-family: inherit;
             transition: border-color 0.2s, background 0.2s;
             resize: vertical;
-            min-height: 80px;
-            line-height: 1.5;
+            min-height: 120px;
+            line-height: 1.6;
         }
         .rating-note-input:focus {
             outline: none;
             border-color: #00a4dc;
             background: rgba(0, 0, 0, 0.3);
+            box-shadow: 0 0 0 1px #00a4dc;
         }
         .rating-note-input::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+        .rating-char-count {
+            font-size: 0.85em;
             color: rgba(255, 255, 255, 0.4);
+            margin-top: 0.5em;
+        }
+        .rating-char-count.error {
+            color: #ff6b6b;
         }
         .rating-actions {
-            margin-top: 1em;
+            margin-top: 1.5em;
             display: flex;
-            gap: 0.5em;
+            gap: 0.75em;
             flex-wrap: wrap;
         }
         .rating-actions button {
-            padding: 0.6em 1.3em;
+            padding: 0.85em 2em;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            font-weight: 500;
-            font-size: 0.95em;
+            font-weight: 600;
+            font-size: 1em;
             transition: all 0.2s;
+            letter-spacing: 0.02em;
         }
         .rating-actions .save-btn {
-            background: #00a4dc;
+            background: linear-gradient(180deg, #e53935 0%, #c62828 100%);
             color: white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            flex: 1;
+            min-width: 200px;
         }
-        .rating-actions .save-btn:hover {
-            background: #0080b3;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(0, 164, 220, 0.3);
+        .rating-actions .save-btn:hover:not(:disabled) {
+            background: linear-gradient(180deg, #d32f2f 0%, #b71c1c 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(229, 57, 53, 0.4);
         }
         .rating-actions .save-btn:disabled {
-            background: #555;
+            background: linear-gradient(180deg, #666 0%, #555 100%);
             cursor: not-allowed;
             transform: none;
-            box-shadow: none;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+            opacity: 0.6;
         }
         .rating-actions .delete-btn {
-            background: rgba(229, 57, 53, 0.8);
-            color: white;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 0.75em 1.5em;
+            font-weight: 500;
         }
         .rating-actions .delete-btn:hover {
-            background: #e53935;
-            transform: translateY(-1px);
-            box-shadow: 0 2px 8px rgba(229, 57, 53, 0.3);
+            background: rgba(229, 57, 53, 0.15);
+            color: #ff6b6b;
+            border-color: rgba(229, 57, 53, 0.4);
+            transform: none;
         }
         .user-ratings-all {
             margin-top: 1.5em;
@@ -296,6 +324,17 @@
         container.className = 'user-ratings-container';
         container.id = 'user-ratings-ui';
         
+        // Get item name for personalized heading
+        let itemName = 'this item';
+        try {
+            const itemDetails = await ApiClient.getItem(ApiClient.getCurrentUserId(), itemId);
+            if (itemDetails && itemDetails.Name) {
+                itemName = itemDetails.Name;
+            }
+        } catch (error) {
+            console.log('[UserRatings] Could not load item name');
+        }
+        
         // Header
         const header = document.createElement('div');
         header.className = 'user-ratings-header';
@@ -311,40 +350,70 @@
         const myRatingSection = document.createElement('div');
         myRatingSection.className = 'user-ratings-my-rating';
         
+        // Star Rating Section
+        const starSection = document.createElement('div');
+        starSection.className = 'rating-form-section';
+        
         const myRatingTitle = document.createElement('div');
         myRatingTitle.className = 'user-ratings-section-title';
-        myRatingTitle.textContent = 'Your Rating';
-        myRatingSection.appendChild(myRatingTitle);
+        myRatingTitle.textContent = `How would you rate ${itemName}?`;
+        starSection.appendChild(myRatingTitle);
         
-        // Form row for better layout
-        const formRow = document.createElement('div');
-        formRow.className = 'rating-form-row';
+        const starRatingContainer = document.createElement('div');
+        starRatingContainer.className = 'star-rating-container';
         
-        // Column 1: Stars
-        const col1 = document.createElement('div');
-        col1.className = 'rating-form-col';
         const starContainer = createStarRating(0, true,
-            (rating) => updateStarDisplay(starContainer, rating),
+            (rating) => {
+                updateStarDisplay(starContainer, rating);
+                ratingPrompt.style.display = rating === 0 ? 'inline' : 'none';
+            },
             (rating) => {
                 currentRating = rating;
                 updateStarDisplay(starContainer, rating);
+                ratingPrompt.style.display = 'none';
             }
         );
-        col1.appendChild(starContainer);
-        formRow.appendChild(col1);
+        starRatingContainer.appendChild(starContainer);
         
-        // Column 2: Note textarea
-        const col2 = document.createElement('div');
-        col2.className = 'rating-form-col';
-        col2.style.flex = '2';
+        const ratingPrompt = document.createElement('span');
+        ratingPrompt.className = 'rating-prompt';
+        ratingPrompt.textContent = 'Select your rating';
+        starRatingContainer.appendChild(ratingPrompt);
+        
+        starSection.appendChild(starRatingContainer);
+        myRatingSection.appendChild(starSection);
+        
+        // Review Text Section
+        const reviewSection = document.createElement('div');
+        reviewSection.className = 'rating-form-section';
+        
+        const reviewTitle = document.createElement('div');
+        reviewTitle.className = 'user-ratings-section-title';
+        reviewTitle.textContent = 'Tell us about your experience';
+        reviewSection.appendChild(reviewTitle);
+        
+        const reviewSubtitle = document.createElement('div');
+        reviewSubtitle.className = 'user-ratings-section-subtitle';
+        reviewSubtitle.textContent = 'Share your thoughts (optional)';
+        reviewSection.appendChild(reviewSubtitle);
+        
         const noteInput = document.createElement('textarea');
         noteInput.className = 'rating-note-input';
-        noteInput.placeholder = 'Add a note (optional)';
-        noteInput.rows = 3;
-        col2.appendChild(noteInput);
-        formRow.appendChild(col2);
+        noteInput.placeholder = 'Start your review...';
+        reviewSection.appendChild(noteInput);
         
-        myRatingSection.appendChild(formRow);
+        const charCount = document.createElement('div');
+        charCount.className = 'rating-char-count';
+        charCount.textContent = '0 characters';
+        reviewSection.appendChild(charCount);
+        
+        // Character counter
+        noteInput.addEventListener('input', () => {
+            const length = noteInput.value.length;
+            charCount.textContent = `${length} character${length !== 1 ? 's' : ''}`;
+        });
+        
+        myRatingSection.appendChild(reviewSection);
         
         // Actions
         const actionsContainer = document.createElement('div');
@@ -352,7 +421,7 @@
         
         const saveBtn = document.createElement('button');
         saveBtn.className = 'save-btn';
-        saveBtn.textContent = 'Save Rating';
+        saveBtn.textContent = 'Post Rating';
         saveBtn.addEventListener('click', async () => {
             if (currentRating === 0) {
                 alert('Please select a rating');
@@ -360,14 +429,14 @@
             }
             
             saveBtn.disabled = true;
-            saveBtn.textContent = 'Saving...';
+            saveBtn.textContent = 'Posting...';
             
             const result = await saveRating(itemId, currentRating, noteInput.value);
             
             if (result.success) {
-                saveBtn.textContent = 'Saved!';
+                saveBtn.textContent = 'Posted!';
                 setTimeout(() => {
-                    saveBtn.textContent = 'Save Rating';
+                    saveBtn.textContent = 'Post Rating';
                     saveBtn.disabled = false;
                 }, 2000);
                 
@@ -376,7 +445,7 @@
                 deleteBtn.style.display = 'inline-block';
             } else {
                 alert('Error saving rating: ' + result.message);
-                saveBtn.textContent = 'Save Rating';
+                saveBtn.textContent = 'Post Rating';
                 saveBtn.disabled = false;
             }
         });
@@ -426,7 +495,11 @@
         if (myRating && myRating.rating) {
             currentRating = myRating.rating;
             updateStarDisplay(starContainer, myRating.rating);
+            ratingPrompt.style.display = 'none';
             noteInput.value = myRating.note || '';
+            // Update character counter
+            const length = noteInput.value.length;
+            charCount.textContent = `${length} character${length !== 1 ? 's' : ''}`;
             deleteBtn.style.display = 'inline-block';
         }
         
