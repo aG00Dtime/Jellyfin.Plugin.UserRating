@@ -839,7 +839,7 @@
                 const serverId = ApiClient.serverId();
 
                 return `
-                    <div data-index="0" data-isfolder="false" data-serverid="${serverId}" data-id="${item.itemId}" data-type="${details.Type}" data-mediatype="Video" class="card portraitCard card-hoverable card-withuserdata">
+                    <div data-index="0" data-isfolder="false" data-serverid="${serverId}" data-id="${item.itemId}" data-type="${details.Type}" data-mediatype="Video" class="card portraitCard card-hoverable card-withuserdata" style="min-width: 150px; max-width: 250px;">
                         <div class="cardBox cardBox-bottompadded">
                             <div class="cardScalable">
                                 <div class="cardPadder cardPadder-portrait"></div>
@@ -872,7 +872,7 @@
                         <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
                             <h2 class="sectionTitle sectionTitle-cards">Recently Rated Movies</h2>
                         </div>
-                        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
+                        <div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-margin="0.9%">
                             ${buildCategoryGrid(recentMovies)}
                         </div>
                     </div>
@@ -885,7 +885,7 @@
                         <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
                             <h2 class="sectionTitle sectionTitle-cards">Recently Rated Shows</h2>
                         </div>
-                        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
+                        <div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-margin="0.9%">
                             ${buildCategoryGrid(recentSeries)}
                         </div>
                     </div>
@@ -898,7 +898,7 @@
                         <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
                             <h2 class="sectionTitle sectionTitle-cards">Recently Rated Episodes</h2>
                         </div>
-                        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
+                        <div is="emby-itemscontainer" class="itemsContainer padded-left padded-right vertical-wrap focuscontainer-x" data-margin="0.9%">
                             ${buildCategoryGrid(recentEpisodes)}
                         </div>
                     </div>
