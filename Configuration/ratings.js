@@ -811,8 +811,9 @@
                 const details = item.details;
                 const imageUrl = ApiClient.getImageUrl(item.itemId, {
                     type: 'Primary',
-                    maxWidth: 400,
-                    quality: 90
+                    fillHeight: 256,
+                    fillWidth: 456,
+                    quality: 96
                 });
 
                 const title = details.Name || 'Unknown';
@@ -821,26 +822,27 @@
                 const serverId = ApiClient.serverId();
 
                 return `
-                    <div class="card portraitCard" data-item-id="${item.itemId}" style="cursor: pointer;">
-                        <div class="cardBox visualCardBox">
+                    <div data-index="0" data-isfolder="false" data-serverid="${serverId}" data-id="${item.itemId}" data-type="${details.Type}" data-mediatype="Video" class="card overflowPortraitCard card-hoverable card-withuserdata">
+                        <div class="cardBox cardBox-bottompadded">
                             <div class="cardScalable">
-                                <div class="cardPadder cardPadder-portrait"></div>
-                                <div class="cardContent">
-                                    <div class="cardImageContainer coveredImage">
-                                        <img src="${imageUrl}" class="cardImage cardImage-img" loading="lazy" decoding="async" draggable="false">
-                                        <div class="cardIndicators cardIndicators-bottomright">
-                                            <div style="background: rgba(0,0,0,0.85); padding: 0.4em 0.7em; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3em;">
-                                                <span style="color: #ffd700; font-size: 1.1em;">★</span>
-                                                <span style="font-weight: 600;">${rating}</span>
-                                                <span style="opacity: 0.7; font-size: 0.85em;">(${count})</span>
-                                            </div>
-                                        </div>
+                                <div class="cardPadder cardPadder-overflowPortrait">
+                                    <span class="cardImageIcon material-icons ${details.Type.toLowerCase()}" aria-hidden="true"></span>
+                                </div>
+                                <a href="#/details?id=${item.itemId}&serverId=${serverId}" data-action="link" class="cardImageContainer cardContent itemAction" aria-label="${title}" style="background-image: url('${imageUrl}');"></a>
+                                <div class="cardIndicators cardIndicators-bottomright">
+                                    <div style="background: rgba(0,0,0,0.85); padding: 0.4em 0.7em; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3em;">
+                                        <span style="color: #ffd700; font-size: 1.1em;">★</span>
+                                        <span style="font-weight: 600;">${rating}</span>
+                                        <span style="opacity: 0.7; font-size: 0.85em;">(${count})</span>
                                     </div>
                                 </div>
                             </div>
-                            <div class="cardFooter">
-                                <div class="cardText cardText-first">${title}</div>
+                            <div class="cardText cardTextCentered cardText-first">
+                                <bdi>
+                                    <a href="#/details?id=${item.itemId}&serverId=${serverId}" data-id="${item.itemId}" data-serverid="${serverId}" data-type="${details.Type}" data-action="link" class="itemAction textActionButton" title="${title}">${title}</a>
+                                </bdi>
                             </div>
+                            <div class="cardText cardTextCentered">&nbsp;</div>
                         </div>
                     </div>
                 `;
