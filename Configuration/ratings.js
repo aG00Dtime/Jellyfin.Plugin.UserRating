@@ -237,6 +237,7 @@
                 }
             });
             const data = await response.json();
+            console.log('[UserRatings] Loaded ratings:', data);
             return data.ratings || [];
         } catch (error) {
             console.error('[UserRatings] Error loading ratings:', error);
