@@ -45,6 +45,7 @@
             align-items: flex-start;
             flex-wrap: wrap;
             margin-top: 1em;
+            padding-right: 0.5em;
         }
         .rating-form-col {
             flex: 1;
