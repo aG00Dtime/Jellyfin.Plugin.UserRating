@@ -37,6 +37,17 @@
                         </button>
                     </div>
 
+                    <div style="margin-top: 2em; padding-top: 2em; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                        <h3 style="color: #e53935;">Danger Zone</h3>
+                        <div class="fieldDescription" style="margin-bottom: 1em;">
+                            Permanently delete all user ratings from the database. This action cannot be undone.
+                        </div>
+                        <button id="btnDeleteAllRatings" type="button" is="emby-button" class="raised" style="background: #e53935; color: white;">
+                            <span>Delete All Ratings</span>
+                        </button>
+                        <div id="deleteResult" style="display: none; margin-top: 1em; padding: 1em; border-radius: 4px;"></div>
+                    </div>
+
                     <div style="margin-top: 2em;">
                         <h3>API Endpoints</h3>
                         <div class="fieldDescription">
@@ -77,6 +88,49 @@
                 });
                 e.preventDefault();
                 return false;
+            });
+
+            document.getElementById('btnDeleteAllRatings').addEventListener('click', function () {
+                var resultDiv = document.getElementById('deleteResult');
+                resultDiv.style.display = 'none';
+                
+                if (!confirm('Are you ABSOLUTELY sure you want to delete ALL user ratings? This cannot be undone!')) {
+                    return;
+                }
+                
+                if (!confirm('This will permanently delete all ratings from all users. Continue?')) {
+                    return;
+                }
+                
+                Dashboard.showLoadingMsg();
+                
+                fetch(ApiClient.getUrl('api/UserRatings/DeleteAll'), {
+                    method: 'DELETE',
+                    headers: {
+                        'X-Emby-Token': ApiClient.accessToken()
+                    }
+                }).then(function (response) {
+                    return response.json();
+                }).then(function (result) {
+                    Dashboard.hideLoadingMsg();
+                    resultDiv.style.display = 'block';
+                    
+                    if (result.success) {
+                        resultDiv.innerHTML = result.message || 'All ratings have been deleted';
+                        resultDiv.style.backgroundColor = '#4CAF50';
+                        resultDiv.style.color = 'white';
+                    } else {
+                        resultDiv.innerHTML = result.message || 'Error deleting ratings';
+                        resultDiv.style.backgroundColor = '#f44336';
+                        resultDiv.style.color = 'white';
+                    }
+                }).catch(function (error) {
+                    Dashboard.hideLoadingMsg();
+                    resultDiv.style.display = 'block';
+                    resultDiv.innerHTML = 'Error: ' + error.message;
+                    resultDiv.style.backgroundColor = '#f44336';
+                    resultDiv.style.color = 'white';
+                });
             });
         </script>
     </div>

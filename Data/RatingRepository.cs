@@ -123,6 +123,15 @@ namespace Jellyfin.Plugin.UserRatings.Data
                 };
             }
         }
+
+        public void DeleteAllRatings()
+        {
+            lock (_lock)
+            {
+                _ratings.Clear();
+                SaveRatings();
+            }
+        }
     }
 }
 

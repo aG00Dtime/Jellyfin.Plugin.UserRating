@@ -7,20 +7,22 @@
     const style = document.createElement('style');
     style.textContent = `
         .user-ratings-container {
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
             padding: 1.5em;
             margin-bottom: 2em;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
         .user-ratings-header {
             font-size: 1.3em;
             font-weight: 500;
-            margin-bottom: 1em;
+            margin-bottom: 1.2em;
             color: #ffffff;
             display: flex;
             align-items: center;
             gap: 1em;
+            flex-wrap: wrap;
         }
         .user-ratings-average {
             color: #ffd700;
@@ -29,22 +31,34 @@
         .user-ratings-my-rating {
             margin-bottom: 1.5em;
             padding-bottom: 1.5em;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
         .user-ratings-section-title {
             font-size: 1.1em;
             margin-bottom: 0.75em;
             color: #00a4dc;
+            font-weight: 500;
+        }
+        .rating-form-row {
+            display: flex;
+            gap: 1em;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            margin-top: 1em;
+        }
+        .rating-form-col {
+            flex: 1;
+            min-width: 200px;
         }
         .star-rating {
             display: inline-flex;
             gap: 0.25em;
             cursor: pointer;
             font-size: 1.8em;
-            margin: 0.5em 0;
+            margin-bottom: 0.5em;
         }
         .star-rating .star {
-            color: #888;
+            color: #555;
             transition: color 0.2s, transform 0.1s;
             cursor: pointer;
         }
@@ -57,14 +71,22 @@
         }
         .rating-note-input {
             width: 100%;
-            max-width: 500px;
-            padding: 0.5em;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
+            padding: 0.6em 0.8em;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
             color: white;
-            font-size: 1em;
-            margin-top: 0.5em;
+            font-size: 0.95em;
+            font-family: inherit;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .rating-note-input:focus {
+            outline: none;
+            border-color: #00a4dc;
+            background: rgba(0, 0, 0, 0.3);
+        }
+        .rating-note-input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
         }
         .rating-actions {
             margin-top: 1em;
@@ -73,13 +95,13 @@
             flex-wrap: wrap;
         }
         .rating-actions button {
-            padding: 0.6em 1.2em;
+            padding: 0.6em 1.3em;
             border: none;
-            border-radius: 4px;
+            border-radius: 6px;
             cursor: pointer;
             font-weight: 500;
             font-size: 0.95em;
-            transition: background 0.2s;
+            transition: all 0.2s;
         }
         .rating-actions .save-btn {
             background: #00a4dc;
@@ -87,27 +109,42 @@
         }
         .rating-actions .save-btn:hover {
             background: #0080b3;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 164, 220, 0.3);
         }
         .rating-actions .save-btn:disabled {
             background: #555;
             cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
         }
         .rating-actions .delete-btn {
-            background: #e53935;
+            background: rgba(229, 57, 53, 0.8);
             color: white;
         }
         .rating-actions .delete-btn:hover {
-            background: #c62828;
+            background: #e53935;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(229, 57, 53, 0.3);
         }
         .user-ratings-all {
             margin-top: 1.5em;
         }
         .rating-item {
             margin: 0.75em 0;
-            padding: 0.75em;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
+            padding: 1em;
+            background: rgba(0, 0, 0, 0.12);
+            border-radius: 8px;
             color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .rating-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5em;
+            flex-wrap: wrap;
+            gap: 0.5em;
         }
         .rating-item-user {
             font-weight: 500;
@@ -117,11 +154,16 @@
             color: #ffd700;
             margin-left: 0.5em;
         }
+        .rating-item-date {
+            font-size: 0.85em;
+            color: rgba(255, 255, 255, 0.5);
+        }
         .rating-item-note {
             margin-top: 0.5em;
-            opacity: 0.8;
-            font-size: 0.9em;
-            color: #cccccc;
+            opacity: 0.9;
+            font-size: 0.95em;
+            color: #e0e0e0;
+            line-height: 1.4;
         }
     `;
     document.head.appendChild(style);
@@ -265,7 +307,13 @@
         myRatingTitle.textContent = 'Your Rating';
         myRatingSection.appendChild(myRatingTitle);
         
-        // Stars
+        // Form row for better layout
+        const formRow = document.createElement('div');
+        formRow.className = 'rating-form-row';
+        
+        // Column 1: Stars
+        const col1 = document.createElement('div');
+        col1.className = 'rating-form-col';
         const starContainer = createStarRating(0, true,
             (rating) => updateStarDisplay(starContainer, rating),
             (rating) => {
@@ -273,14 +321,21 @@
                 updateStarDisplay(starContainer, rating);
             }
         );
-        myRatingSection.appendChild(starContainer);
+        col1.appendChild(starContainer);
+        formRow.appendChild(col1);
         
-        // Note input
+        // Column 2: Note input
+        const col2 = document.createElement('div');
+        col2.className = 'rating-form-col';
+        col2.style.flex = '2';
         const noteInput = document.createElement('input');
         noteInput.type = 'text';
         noteInput.className = 'rating-note-input';
         noteInput.placeholder = 'Add a note (optional)';
-        myRatingSection.appendChild(noteInput);
+        col2.appendChild(noteInput);
+        formRow.appendChild(col2);
+        
+        myRatingSection.appendChild(formRow);
         
         // Actions
         const actionsContainer = document.createElement('div');
@@ -405,20 +460,41 @@
             const item = document.createElement('div');
             item.className = 'rating-item';
             
-            const userLine = document.createElement('div');
+            // Header with user, stars, and date
+            const header = document.createElement('div');
+            header.className = 'rating-item-header';
+            
+            const leftSide = document.createElement('div');
             const userName = document.createElement('span');
             userName.className = 'rating-item-user';
             userName.textContent = rating.userName || rating.UserName || 'Unknown User';
-            userLine.appendChild(userName);
+            leftSide.appendChild(userName);
             
             const stars = document.createElement('span');
             stars.className = 'rating-item-stars';
             const ratingValue = rating.rating || rating.Rating || 0;
             stars.textContent = '★'.repeat(ratingValue) + '☆'.repeat(5 - ratingValue);
-            userLine.appendChild(stars);
+            leftSide.appendChild(stars);
             
-            item.appendChild(userLine);
+            header.appendChild(leftSide);
             
+            // Date
+            const timestamp = rating.timestamp || rating.Timestamp;
+            if (timestamp) {
+                const date = document.createElement('span');
+                date.className = 'rating-item-date';
+                const dateObj = new Date(timestamp);
+                date.textContent = dateObj.toLocaleDateString(undefined, { 
+                    year: 'numeric', 
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+                header.appendChild(date);
+            }
+            
+            item.appendChild(header);
+            
+            // Note
             const noteText = rating.note || rating.Note;
             if (noteText) {
                 const note = document.createElement('div');

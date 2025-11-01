@@ -148,6 +148,22 @@ namespace Jellyfin.Plugin.UserRatings.Api
                 return StatusCode(500, new { success = false, message = ex.Message });
             }
         }
+
+        [HttpDelete("DeleteAll")]
+        [Produces(MediaTypeNames.Application.Json)]
+        public ActionResult DeleteAllRatings()
+        {
+            try
+            {
+                _repository.DeleteAllRatings();
+
+                return Ok(new { success = true, message = "All ratings have been deleted successfully" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = ex.Message });
+            }
+        }
     }
 }
 
