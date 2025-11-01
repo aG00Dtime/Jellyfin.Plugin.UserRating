@@ -727,6 +727,47 @@
             targetContainer.appendChild(ui);
             isInjecting = false;
             console.log('[UserRatings] ✓ UI injected successfully');
+            
+            // Watch for the UI being removed
+            const removalObserver = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    for (const node of mutation.removedNodes) {
+                        if (node.id === 'user-ratings-ui') {
+                            console.error('[UserRatings] ⚠️ UI was removed from DOM by:', mutation.target);
+                            removalObserver.disconnect();
+                            // Re-inject after a delay
+                            isInjecting = false;
+                            injectionAttempts = 0;
+                            setTimeout(injectRatingsUI, 200);
+                            return;
+                        }
+                    }
+                }
+            });
+            removalObserver.observe(targetContainer, { childList: true, subtree: true });
+            
+            // Verify injection after a short delay
+            setTimeout(() => {
+                const stillExists = document.getElementById('user-ratings-ui');
+                if (!stillExists) {
+                    console.error('[UserRatings] ⚠️ UI not found in DOM 500ms after injection! Re-injecting...');
+                    isInjecting = false;
+                    injectionAttempts = 0;
+                    setTimeout(injectRatingsUI, 100);
+                } else {
+                    const styles = window.getComputedStyle(stillExists);
+                    console.log('[UserRatings] ✅ UI verified in DOM. Display:', styles.display, 'Visibility:', styles.visibility);
+                    
+                    // Check if container is in viewport
+                    const rect = stillExists.getBoundingClientRect();
+                    const inViewport = rect.height > 0 && rect.width > 0;
+                    if (!inViewport) {
+                        console.warn('[UserRatings] ⚠️ UI has no dimensions! Height:', rect.height, 'Width:', rect.width);
+                    } else {
+                        console.log('[UserRatings] ✅ UI is visible. Height:', rect.height, 'Width:', rect.width);
+                    }
+                }
+            }, 500);
         }).catch(err => {
             console.error('[UserRatings] Error creating UI:', err);
             isInjecting = false;
