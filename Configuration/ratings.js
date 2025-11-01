@@ -653,12 +653,37 @@
         
         console.log('[UserRatings] On detail page, proceeding with injection');
         
-        // Check if UI already exists - if so, don't inject again
+        // Get item ID from URL first
+        let itemId = null;
+        const urlParams = new URLSearchParams(window.location.search);
+        itemId = urlParams.get('id');
+        if (!itemId && window.location.hash.includes('?')) {
+            const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
+            itemId = hashParams.get('id');
+        }
+        if (!itemId) {
+            const guidMatch = window.location.href.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+            if (guidMatch) {
+                itemId = guidMatch[1];
+            }
+        }
+        if (!itemId) {
+            console.log('[UserRatings] No item ID found in URL');
+            return;
+        }
+        
+        // Check if UI already exists for THIS item - if different item or broken, remove it
         const existingUI = document.getElementById('user-ratings-ui');
         if (existingUI) {
-            console.log('[UserRatings] UI already exists, skipping injection');
-            injectionAttempts = 0; // Reset attempts counter
-            return;
+            if (currentItemId === itemId) {
+                console.log('[UserRatings] UI already exists for this item, skipping injection');
+                injectionAttempts = 0;
+                return;
+            } else {
+                console.log('[UserRatings] UI exists for different item, removing old UI');
+                existingUI.remove();
+                currentItemId = null;
+            }
         }
         
         // Find .detailSection and wait for it to have content, then inject after it
@@ -704,36 +729,6 @@
         }
         
         console.log(`[UserRatings] Found .detailSection with content (${rect.width}x${rect.height}), injecting after it`);
-        
-        // Get item ID from URL
-        let itemId = null;
-        const urlParams = new URLSearchParams(window.location.search);
-        itemId = urlParams.get('id');
-        
-        if (!itemId && window.location.hash.includes('?')) {
-            const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
-            itemId = hashParams.get('id');
-        }
-        
-        if (!itemId) {
-            const guidMatch = window.location.href.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
-            if (guidMatch) {
-                itemId = guidMatch[1];
-            }
-        }
-        
-        if (!itemId) {
-            console.log('[UserRatings] No item ID found');
-            injectionAttempts = 0;
-            return;
-        }
-        
-        // Skip if it's the same item we just injected for
-        if (currentItemId === itemId && existingUI) {
-            console.log('[UserRatings] Same item, UI exists, skipping');
-            injectionAttempts = 0;
-            return;
-        }
         
         currentItemId = itemId;
         isInjecting = true;
