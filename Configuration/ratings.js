@@ -610,6 +610,9 @@
         });
     }
 
+    let injectionAttempts = 0;
+    const maxInjectionAttempts = 20;
+    
     function injectRatingsUI() {
         // Prevent concurrent injections
         if (isInjecting) {
@@ -621,6 +624,7 @@
         const existingUI = document.getElementById('user-ratings-ui');
         if (existingUI) {
             console.log('[UserRatings] UI already exists, skipping injection');
+            injectionAttempts = 0; // Reset attempts counter
             return;
         }
         
@@ -628,7 +632,16 @@
         const targetContainer = document.querySelector('.detailPagePrimaryContent .detailSection');
         
         if (!targetContainer) {
-            // Silently return if container not ready yet
+            // If container not ready yet, retry with backoff
+            if (injectionAttempts < maxInjectionAttempts) {
+                injectionAttempts++;
+                const retryDelay = Math.min(100 * injectionAttempts, 2000); // Exponential backoff up to 2s
+                console.log(`[UserRatings] Container not ready, retry ${injectionAttempts}/${maxInjectionAttempts} in ${retryDelay}ms`);
+                setTimeout(injectRatingsUI, retryDelay);
+            } else {
+                console.log('[UserRatings] Max injection attempts reached, giving up');
+                injectionAttempts = 0;
+            }
             return;
         }
         
@@ -651,17 +664,20 @@
         
         if (!itemId) {
             console.log('[UserRatings] No item ID found');
+            injectionAttempts = 0;
             return;
         }
         
         // Skip if it's the same item we just injected for
         if (currentItemId === itemId && existingUI) {
             console.log('[UserRatings] Same item, UI exists, skipping');
+            injectionAttempts = 0;
             return;
         }
         
         currentItemId = itemId;
         isInjecting = true;
+        injectionAttempts = 0; // Reset counter on successful injection
         console.log('[UserRatings] Injecting UI for item:', itemId);
         
         // Create and inject UI at the end of detailSection
@@ -696,15 +712,17 @@
                 ratingsTab.style.display = 'none';
             }
             
-            // Reset injection flag
+            // Reset injection state
             isInjecting = false;
+            injectionAttempts = 0;
             
-            setTimeout(injectRatingsUI, 500);
+            // Try injection immediately
+            setTimeout(injectRatingsUI, 100);
         }
     }).observe(document.body, { subtree: true, childList: true });
 
-    // Initial injection
-    setTimeout(injectRatingsUI, 1000);
+    // Initial injection - start immediately with retry logic
+    injectRatingsUI();
     
     // Also check on hash change
     window.addEventListener('hashchange', () => {
@@ -749,8 +767,12 @@
             }
         }
         
+        // Reset injection state
         isInjecting = false;
-        setTimeout(injectRatingsUI, 500);
+        injectionAttempts = 0;
+        
+        // Try injection immediately
+        setTimeout(injectRatingsUI, 100);
     });
 
     console.log('[UserRatings] Setting up tab injection...');
