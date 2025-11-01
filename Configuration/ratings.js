@@ -3,137 +3,83 @@
 
     console.log('[UserRatings] Loading plugin...');
 
-    // CSS for modal and star ratings
+    // CSS for inline ratings UI
     const style = document.createElement('style');
     style.textContent = `
-        .user-ratings-modal-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .user-ratings-modal-backdrop.show {
-            display: flex;
-            opacity: 1;
-        }
-        .user-ratings-modal {
-            background: #1c1c1c;
+        .user-ratings-container {
+            background: rgba(0, 0, 0, 0.3);
             border-radius: 8px;
-            padding: 2em;
-            max-width: 600px;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-            transform: scale(0.9);
-            transition: transform 0.3s;
-            color: #ffffff;
+            padding: 1.5em;
+            margin-bottom: 2em;
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .user-ratings-modal-backdrop.show .user-ratings-modal {
-            transform: scale(1);
-        }
-        .user-ratings-modal-close {
-            float: right;
-            font-size: 2em;
-            cursor: pointer;
-            color: #999;
-            line-height: 0.8;
-            margin-top: -0.5em;
-        }
-        .user-ratings-modal-close:hover {
-            color: #fff;
-        }
-        .user-ratings-title {
-            font-size: 1.5em;
-            margin-bottom: 1em;
+        .user-ratings-header {
+            font-size: 1.3em;
             font-weight: 500;
-            clear: both;
+            margin-bottom: 1em;
             color: #ffffff;
-        }
-        .user-ratings-item-title {
-            font-size: 1.2em;
-            margin-bottom: 0.5em;
-            color: #00a4dc;
-        }
-        .user-ratings-button {
-            position: fixed;
-            bottom: 100px;
-            right: 20px;
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: #00a4dc;
-            border: none;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 9999;
-            transition: transform 0.2s, background 0.2s;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-        .user-ratings-button.show {
             display: flex;
+            align-items: center;
+            gap: 1em;
         }
-        .user-ratings-button:hover {
-            background: #0080b3;
-            transform: scale(1.1);
+        .user-ratings-average {
+            color: #ffd700;
+            font-size: 1.1em;
         }
-        .user-ratings-button:active {
-            transform: scale(0.95);
+        .user-ratings-my-rating {
+            margin-bottom: 1.5em;
+            padding-bottom: 1.5em;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .user-ratings-section-title {
+            font-size: 1.1em;
+            margin-bottom: 0.75em;
+            color: #00a4dc;
         }
         .star-rating {
             display: inline-flex;
             gap: 0.25em;
             cursor: pointer;
-            font-size: 2em;
-            margin: 1em 0;
+            font-size: 1.8em;
+            margin: 0.5em 0;
         }
         .star-rating .star {
             color: #888;
-            transition: color 0.2s;
+            transition: color 0.2s, transform 0.1s;
+            cursor: pointer;
         }
         .star-rating .star.filled {
             color: #ffd700;
         }
-        .star-rating .star:hover,
-        .star-rating .star.hover {
+        .star-rating .star:hover {
             color: #ffed4e;
+            transform: scale(1.1);
         }
-        .rating-note {
-            margin-top: 1em;
-        }
-        .rating-note input {
+        .rating-note-input {
             width: 100%;
+            max-width: 500px;
             padding: 0.5em;
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 4px;
             color: white;
             font-size: 1em;
+            margin-top: 0.5em;
         }
         .rating-actions {
             margin-top: 1em;
             display: flex;
             gap: 0.5em;
+            flex-wrap: wrap;
         }
         .rating-actions button {
-            padding: 0.75em 1.5em;
+            padding: 0.6em 1.2em;
             border: none;
             border-radius: 4px;
             cursor: pointer;
             font-weight: 500;
-            font-size: 1em;
+            font-size: 0.95em;
+            transition: background 0.2s;
         }
         .rating-actions .save-btn {
             background: #00a4dc;
@@ -142,6 +88,10 @@
         .rating-actions .save-btn:hover {
             background: #0080b3;
         }
+        .rating-actions .save-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
         .rating-actions .delete-btn {
             background: #e53935;
             color: white;
@@ -149,21 +99,13 @@
         .rating-actions .delete-btn:hover {
             background: #c62828;
         }
-        .other-ratings {
-            margin-top: 2em;
-            padding-top: 1em;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .other-ratings-title {
-            font-size: 1.2em;
-            margin-bottom: 1em;
-            opacity: 0.8;
-            color: #ffffff;
+        .user-ratings-all {
+            margin-top: 1.5em;
         }
         .rating-item {
             margin: 0.75em 0;
             padding: 0.75em;
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.2);
             border-radius: 4px;
             color: #ffffff;
         }
@@ -181,17 +123,11 @@
             font-size: 0.9em;
             color: #cccccc;
         }
-        .rating-average {
-            display: inline-block;
-            margin-left: 1em;
-            font-size: 1.2em;
-            color: #ffd700;
-        }
     `;
     document.head.appendChild(style);
 
     let currentItemId = null;
-    let currentItemName = null;
+    let currentRating = 0;
 
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
@@ -238,10 +174,10 @@
             });
             const data = await response.json();
             console.log('[UserRatings] Loaded ratings:', data);
-            return data.ratings || [];
+            return data;
         } catch (error) {
             console.error('[UserRatings] Error loading ratings:', error);
-            return [];
+            return { ratings: [], averageRating: 0, totalRatings: 0 };
         }
     }
 
@@ -264,7 +200,7 @@
     async function saveRating(itemId, rating, note) {
         try {
             const userId = ApiClient.getCurrentUserId();
-            const user = ApiClient.getCurrentUser();
+            const user = await ApiClient.getCurrentUser();
             const userName = user ? user.Name : 'Unknown';
             const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&userId=${userId}&rating=${rating}${note ? '&note=' + encodeURIComponent(note) : ''}&userName=${encodeURIComponent(userName)}`);
             const response = await fetch(url, {
@@ -304,55 +240,49 @@
         }
     }
 
-    function createModal() {
-        const backdrop = document.createElement('div');
-        backdrop.className = 'user-ratings-modal-backdrop';
+    async function createRatingsUI(itemId) {
+        const container = document.createElement('div');
+        container.className = 'user-ratings-container';
+        container.id = 'user-ratings-ui';
         
-        const modal = document.createElement('div');
-        modal.className = 'user-ratings-modal';
+        // Header
+        const header = document.createElement('div');
+        header.className = 'user-ratings-header';
+        header.innerHTML = '<span>User Ratings</span>';
         
-        const closeBtn = document.createElement('span');
-        closeBtn.className = 'user-ratings-modal-close';
-        closeBtn.textContent = '×';
-        closeBtn.addEventListener('click', () => {
-            backdrop.classList.remove('show');
-            setTimeout(() => backdrop.style.display = 'none', 300);
-        });
-        modal.appendChild(closeBtn);
+        const avgSpan = document.createElement('span');
+        avgSpan.className = 'user-ratings-average';
+        avgSpan.id = 'ratings-average-display';
+        header.appendChild(avgSpan);
+        container.appendChild(header);
         
-        const title = document.createElement('div');
-        title.className = 'user-ratings-title';
-        title.textContent = 'Rate This';
-        modal.appendChild(title);
+        // My Rating Section
+        const myRatingSection = document.createElement('div');
+        myRatingSection.className = 'user-ratings-my-rating';
         
-        const itemTitle = document.createElement('div');
-        itemTitle.className = 'user-ratings-item-title';
-        itemTitle.id = 'ratings-item-title';
-        modal.appendChild(itemTitle);
-
-        let currentRating = 0;
-        let currentNote = '';
+        const myRatingTitle = document.createElement('div');
+        myRatingTitle.className = 'user-ratings-section-title';
+        myRatingTitle.textContent = 'Your Rating';
+        myRatingSection.appendChild(myRatingTitle);
         
-        const starContainer = createStarRating(0, true, 
+        // Stars
+        const starContainer = createStarRating(0, true,
             (rating) => updateStarDisplay(starContainer, rating),
             (rating) => {
                 currentRating = rating;
                 updateStarDisplay(starContainer, rating);
             }
         );
-        modal.appendChild(starContainer);
-
-        const noteContainer = document.createElement('div');
-        noteContainer.className = 'rating-note';
+        myRatingSection.appendChild(starContainer);
+        
+        // Note input
         const noteInput = document.createElement('input');
         noteInput.type = 'text';
+        noteInput.className = 'rating-note-input';
         noteInput.placeholder = 'Add a note (optional)';
-        noteInput.addEventListener('input', (e) => {
-            currentNote = e.target.value;
-        });
-        noteContainer.appendChild(noteInput);
-        modal.appendChild(noteContainer);
-
+        myRatingSection.appendChild(noteInput);
+        
+        // Actions
         const actionsContainer = document.createElement('div');
         actionsContainer.className = 'rating-actions';
         
@@ -368,7 +298,7 @@
             saveBtn.disabled = true;
             saveBtn.textContent = 'Saving...';
             
-            const result = await saveRating(currentItemId, currentRating, currentNote);
+            const result = await saveRating(itemId, currentRating, noteInput.value);
             
             if (result.success) {
                 saveBtn.textContent = 'Saved!';
@@ -377,7 +307,9 @@
                     saveBtn.disabled = false;
                 }, 2000);
                 
-                loadAndDisplayOtherRatings(currentItemId, modal);
+                // Reload all ratings
+                await displayAllRatings(itemId, container);
+                deleteBtn.style.display = 'inline-block';
             } else {
                 alert('Error saving rating: ' + result.message);
                 saveBtn.textContent = 'Save Rating';
@@ -385,7 +317,7 @@
             }
         });
         actionsContainer.appendChild(saveBtn);
-
+        
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
         deleteBtn.textContent = 'Delete Rating';
@@ -398,16 +330,15 @@
             deleteBtn.disabled = true;
             deleteBtn.textContent = 'Deleting...';
             
-            const result = await deleteRating(currentItemId);
+            const result = await deleteRating(itemId);
             
             if (result.success) {
                 currentRating = 0;
-                currentNote = '';
                 noteInput.value = '';
                 updateStarDisplay(starContainer, 0);
                 deleteBtn.style.display = 'none';
                 
-                loadAndDisplayOtherRatings(currentItemId, modal);
+                await displayAllRatings(itemId, container);
             } else {
                 alert('Error deleting rating: ' + result.message);
             }
@@ -417,49 +348,59 @@
         });
         actionsContainer.appendChild(deleteBtn);
         
-        modal.appendChild(actionsContainer);
+        myRatingSection.appendChild(actionsContainer);
+        container.appendChild(myRatingSection);
         
-        backdrop.appendChild(modal);
-        document.body.appendChild(backdrop);
+        // All Ratings Section
+        const allRatingsSection = document.createElement('div');
+        allRatingsSection.className = 'user-ratings-all';
+        allRatingsSection.id = 'all-ratings-section';
+        container.appendChild(allRatingsSection);
         
-        // Click backdrop to close
-        backdrop.addEventListener('click', (e) => {
-            if (e.target === backdrop) {
-                backdrop.classList.remove('show');
-                setTimeout(() => backdrop.style.display = 'none', 300);
-            }
-        });
+        // Load existing rating
+        const myRating = await loadMyRating(itemId);
+        if (myRating && myRating.rating) {
+            currentRating = myRating.rating;
+            updateStarDisplay(starContainer, myRating.rating);
+            noteInput.value = myRating.note || '';
+            deleteBtn.style.display = 'inline-block';
+        }
         
-        return { backdrop, modal, starContainer, noteInput, deleteBtn, itemTitle };
+        // Load all ratings
+        await displayAllRatings(itemId, container);
+        
+        return container;
     }
 
-    async function loadAndDisplayOtherRatings(itemId, modal) {
-        const existingSection = modal.querySelector('.other-ratings');
-        if (existingSection) {
-            existingSection.remove();
+    async function displayAllRatings(itemId, container) {
+        const allRatingsSection = container.querySelector('#all-ratings-section');
+        const avgDisplay = container.querySelector('#ratings-average-display');
+        
+        if (!allRatingsSection) return;
+        
+        allRatingsSection.innerHTML = '';
+        
+        const data = await loadRatings(itemId);
+        const ratings = data.ratings || [];
+        const averageRating = data.averageRating || 0;
+        const totalRatings = data.totalRatings || 0;
+        
+        // Update average display
+        if (totalRatings > 0) {
+            avgDisplay.textContent = `★ ${averageRating.toFixed(1)} (${totalRatings} ${totalRatings === 1 ? 'rating' : 'ratings'})`;
+        } else {
+            avgDisplay.textContent = 'No ratings yet';
         }
-
-        const ratings = await loadRatings(itemId);
         
         if (ratings.length === 0) {
             return;
         }
-
-        const otherRatings = document.createElement('div');
-        otherRatings.className = 'other-ratings';
         
-        const otherTitle = document.createElement('div');
-        otherTitle.className = 'other-ratings-title';
+        const title = document.createElement('div');
+        title.className = 'user-ratings-section-title';
+        title.textContent = 'All Ratings';
+        allRatingsSection.appendChild(title);
         
-        const average = ratings.reduce((sum, r) => sum + (r.rating || r.Rating || 0), 0) / ratings.length;
-        const avgSpan = document.createElement('span');
-        avgSpan.className = 'rating-average';
-        avgSpan.textContent = `★ ${average.toFixed(1)} (${ratings.length} ${ratings.length === 1 ? 'rating' : 'ratings'})`;
-        
-        otherTitle.textContent = 'All Ratings';
-        otherTitle.appendChild(avgSpan);
-        otherRatings.appendChild(otherTitle);
-
         ratings.forEach(rating => {
             const item = document.createElement('div');
             item.className = 'rating-item';
@@ -467,7 +408,7 @@
             const userLine = document.createElement('div');
             const userName = document.createElement('span');
             userName.className = 'rating-item-user';
-            userName.textContent = rating.userName || rating.UserName || 'Unknown';
+            userName.textContent = rating.userName || rating.UserName || 'Unknown User';
             userLine.appendChild(userName);
             
             const stars = document.createElement('span');
@@ -486,115 +427,54 @@
                 item.appendChild(note);
             }
             
-            otherRatings.appendChild(item);
+            allRatingsSection.appendChild(item);
         });
-        
-        modal.appendChild(otherRatings);
     }
 
-    const modalElements = createModal();
-
-    async function openRatingModal(itemId, itemName) {
-        currentItemId = itemId;
-        currentItemName = itemName;
-        
-        modalElements.itemTitle.textContent = itemName;
-        modalElements.backdrop.style.display = 'flex';
-        setTimeout(() => modalElements.backdrop.classList.add('show'), 10);
-        
-        // Load existing rating
-        const myRating = await loadMyRating(itemId);
-        if (myRating && myRating.rating) {
-            updateStarDisplay(modalElements.starContainer, myRating.rating);
-            modalElements.noteInput.value = myRating.note || '';
-            modalElements.deleteBtn.style.display = 'inline-block';
-        } else {
-            updateStarDisplay(modalElements.starContainer, 0);
-            modalElements.noteInput.value = '';
-            modalElements.deleteBtn.style.display = 'none';
+    function injectRatingsUI() {
+        // Remove existing UI if any
+        const existingUI = document.getElementById('user-ratings-ui');
+        if (existingUI) {
+            existingUI.remove();
         }
         
-        // Load other ratings
-        await loadAndDisplayOtherRatings(itemId, modalElements.modal);
-    }
-
-    // Create floating button
-    const floatingButton = document.createElement('button');
-    floatingButton.className = 'user-ratings-button';
-    floatingButton.textContent = '★';
-    floatingButton.title = 'Rate this item';
-    floatingButton.addEventListener('click', () => {
-        if (currentItemId && currentItemName) {
-            openRatingModal(currentItemId, currentItemName);
-        }
-    });
-    document.body.appendChild(floatingButton);
-
-    function updateButtonVisibility() {
-        // Check if we're on an item details page
-        const path = window.location.pathname;
-        const hash = window.location.hash;
-        const fullUrl = path + hash + window.location.search;
+        // Find the detailPageSecondaryContainer
+        const targetContainer = document.querySelector('.detailPageSecondaryContainer .detailPageContent');
         
-        // Try multiple ways to get the item ID
+        if (!targetContainer) {
+            console.log('[UserRatings] Target container not found');
+            return;
+        }
+        
+        // Get item ID from URL
         let itemId = null;
-        let itemName = null;
-        
-        // Method 1: From URL parameters
         const urlParams = new URLSearchParams(window.location.search);
         itemId = urlParams.get('id');
         
-        // Method 2: From hash parameters
-        if (!itemId && hash.includes('?')) {
-            const hashParams = new URLSearchParams(hash.split('?')[1]);
+        if (!itemId && window.location.hash.includes('?')) {
+            const hashParams = new URLSearchParams(window.location.hash.split('?')[1]);
             itemId = hashParams.get('id');
         }
         
-        // Method 3: Match any GUID pattern in the URL
         if (!itemId) {
-            const guidMatch = fullUrl.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+            const guidMatch = window.location.href.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
             if (guidMatch) {
-                // Verify this is on a details page
-                if (fullUrl.includes('details') || fullUrl.includes('item') || 
-                    document.querySelector('.detailPage, .itemDetailsPage, .detailsPage')) {
-                    itemId = guidMatch[1];
-                }
+                itemId = guidMatch[1];
             }
         }
         
-        if (itemId) {
-            // Try to get item name from page - more selectors
-            const titleSelectors = [
-                'h1.pageTitle',
-                'h1',
-                '.itemName',
-                '.detailPagePrimaryTitle',
-                '.detailsTitle',
-                '[class*="itemName"]',
-                '[class*="title"]'
-            ];
-            
-            for (const selector of titleSelectors) {
-                const el = document.querySelector(selector);
-                if (el && el.textContent && el.textContent.trim() && 
-                    !el.textContent.includes('Dashboard') && 
-                    !el.textContent.includes('Settings')) {
-                    itemName = el.textContent.trim();
-                    break;
-                }
-            }
-            
-            if (!itemName) itemName = 'this item';
-            
-            currentItemId = itemId;
-            currentItemName = itemName;
-            floatingButton.classList.add('show');
-            console.log('[UserRatings] Item detected:', itemId, itemName);
-        } else {
-            floatingButton.classList.remove('show');
-            currentItemId = null;
-            currentItemName = null;
+        if (!itemId) {
+            console.log('[UserRatings] No item ID found');
+            return;
         }
+        
+        currentItemId = itemId;
+        console.log('[UserRatings] Injecting UI for item:', itemId);
+        
+        // Create and inject UI
+        createRatingsUI(itemId).then(ui => {
+            targetContainer.insertBefore(ui, targetContainer.firstChild);
+        });
     }
 
     // Watch for page changes
@@ -603,15 +483,15 @@
         const url = location.href;
         if (url !== lastUrl) {
             lastUrl = url;
-            setTimeout(updateButtonVisibility, 500);
+            setTimeout(injectRatingsUI, 500);
         }
     }).observe(document.body, { subtree: true, childList: true });
 
-    // Initial check
-    setTimeout(updateButtonVisibility, 1000);
+    // Initial injection
+    setTimeout(injectRatingsUI, 1000);
     
     // Also check on hash change
-    window.addEventListener('hashchange', () => setTimeout(updateButtonVisibility, 500));
+    window.addEventListener('hashchange', () => setTimeout(injectRatingsUI, 500));
 
-    console.log('[UserRatings] Plugin initialized with modal interface');
+    console.log('[UserRatings] Plugin initialized with inline interface');
 })();
