@@ -639,11 +639,19 @@
         
         // Check if we're on a detail page (has item ID in URL)
         const url = location.href;
-        if (!url.includes('/details?id=') && !url.includes('#/details?id=')) {
-            console.log('[UserRatings] Not on a detail page, skipping injection');
+        const hash = location.hash;
+        const isDetailPage = url.includes('/details?id=') || 
+                           url.includes('#/details?id=') || 
+                           hash.includes('/details?id=') ||
+                           hash.includes('#/details?id=');
+        
+        if (!isDetailPage) {
+            console.log('[UserRatings] Not on a detail page, skipping injection. URL:', url);
             injectionAttempts = 0;
             return;
         }
+        
+        console.log('[UserRatings] On detail page, proceeding with injection');
         
         // Check if UI already exists - if so, don't inject again
         const existingUI = document.getElementById('user-ratings-ui');
