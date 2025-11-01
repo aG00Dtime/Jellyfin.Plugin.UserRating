@@ -15,6 +15,9 @@
             margin-bottom: 2em;
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-sizing: border-box;
+            display: block;
+            width: 100%;
+            min-height: 200px;
         }
         .user-ratings-container * {
             box-sizing: border-box;
@@ -642,42 +645,33 @@
             return;
         }
         
-        // Try multiple selector strategies to find the container
+        // Find the container to append our UI to
+        // We target .detailPagePrimaryContent and append as a separate section
         let targetContainer = null;
         
-        // Strategy 1: Look for .detailSection inside .detailPagePrimaryContent
-        targetContainer = document.querySelector('.detailPagePrimaryContent .detailSection');
+        // Strategy 1: Look for .detailPagePrimaryContent (most reliable)
+        targetContainer = document.querySelector('.detailPagePrimaryContent');
         
-        // Strategy 2: Look for .detailPagePrimaryContent itself
+        // Strategy 2: Look for .detailPageContent as fallback
         if (!targetContainer) {
-            const primaryContent = document.querySelector('.detailPagePrimaryContent');
-            if (primaryContent) {
-                // Check if it has children (content loaded)
-                if (primaryContent.children.length > 0) {
-                    targetContainer = primaryContent;
-                }
-            }
+            targetContainer = document.querySelector('.detailPageContent');
         }
         
-        // Strategy 3: Look for any detail section
+        // Strategy 3: Look for .itemDetailPage as last resort
         if (!targetContainer) {
-            targetContainer = document.querySelector('.detailSection');
+            targetContainer = document.querySelector('.itemDetailPage');
         }
         
-        // Strategy 4: Look for itemDetailPage
-        if (!targetContainer) {
-            const detailPage = document.querySelector('.itemDetailPage .detailPageContent');
-            if (detailPage) {
-                targetContainer = detailPage;
-            }
-        }
-        
-        // Check if container has dimensions (not collapsed)
+        // Only check if container exists and has basic structure (don't check dimensions)
+        // We'll append our own section, so we don't need to wait for existing sections to render
         if (targetContainer) {
             const rect = targetContainer.getBoundingClientRect();
-            if (rect.height === 0 || rect.width === 0) {
-                console.log(`[UserRatings] Container found but collapsed (${rect.height}x${rect.width}), waiting for content...`);
-                targetContainer = null; // Treat as not ready
+            // Only check for existence, not dimensions - the parent container should always exist
+            if (rect.width === 0) {
+                console.log(`[UserRatings] Container has no width (${rect.width}), waiting...`);
+                targetContainer = null;
+            } else {
+                console.log(`[UserRatings] Found container:`, targetContainer.className, `(${rect.width}x${rect.height})`);
             }
         }
         
