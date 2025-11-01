@@ -811,9 +811,8 @@
                 const details = item.details;
                 const imageUrl = ApiClient.getImageUrl(item.itemId, {
                     type: 'Primary',
-                    fillHeight: 256,
-                    fillWidth: 456,
-                    quality: 96
+                    maxHeight: 400,
+                    quality: 90
                 });
 
                 const title = details.Name || 'Unknown';
@@ -822,12 +821,10 @@
                 const serverId = ApiClient.serverId();
 
                 return `
-                    <div data-index="0" data-isfolder="false" data-serverid="${serverId}" data-id="${item.itemId}" data-type="${details.Type}" data-mediatype="Video" class="card overflowPortraitCard card-hoverable card-withuserdata">
+                    <div data-index="0" data-isfolder="false" data-serverid="${serverId}" data-id="${item.itemId}" data-type="${details.Type}" data-mediatype="Video" class="card portraitCard card-hoverable card-withuserdata">
                         <div class="cardBox cardBox-bottompadded">
                             <div class="cardScalable">
-                                <div class="cardPadder cardPadder-overflowPortrait">
-                                    <span class="cardImageIcon material-icons ${details.Type.toLowerCase()}" aria-hidden="true"></span>
-                                </div>
+                                <div class="cardPadder cardPadder-portrait"></div>
                                 <a href="#/details?id=${item.itemId}&serverId=${serverId}" data-action="link" class="cardImageContainer cardContent itemAction" aria-label="${title}" style="background-image: url('${imageUrl}');"></a>
                                 <div class="cardIndicators cardIndicators-bottomright">
                                     <div style="background: rgba(0,0,0,0.85); padding: 0.4em 0.7em; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3em;">
@@ -898,6 +895,15 @@
             // Display the categorized grid
             ratingsTabContent.innerHTML = sectionsHTML;
             ratingsTabContent.style.pointerEvents = 'auto'; // Ensure clicks work
+            
+            // Add click handlers to cards
+            ratingsTabContent.querySelectorAll('.card[data-item-id]').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    const itemId = card.getAttribute('data-item-id');
+                    const serverId = ApiClient.serverId();
+                    window.location.hash = `#/details?id=${itemId}&serverId=${serverId}`;
+                });
+            });
             
             console.log('[UserRatings] Content rendered, checking for headers...');
             const headers = ratingsTabContent.querySelectorAll('.sectionTitle');
