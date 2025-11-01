@@ -611,7 +611,7 @@
     }
 
     let injectionAttempts = 0;
-    const maxInjectionAttempts = 20;
+    const maxInjectionAttempts = 30; // Increased for slower-loading episodes
     
     function injectRatingsUI() {
         // Prevent concurrent injections
@@ -628,8 +628,24 @@
             return;
         }
         
-        // Find the detailPagePrimaryContent container
-        const targetContainer = document.querySelector('.detailPagePrimaryContent .detailSection');
+        // Try multiple selectors to find the container (different page types have different structures)
+        const possibleSelectors = [
+            '.detailPagePrimaryContent .detailSection',
+            '.detailPagePrimaryContent',
+            '.detailPageContent .detailSection',
+            '.detailPageContent',
+            '[data-role="page"]:not(.hide) .detailSection',
+            '[data-role="page"]:not(.hide) .itemDetailPage'
+        ];
+        
+        let targetContainer = null;
+        for (const selector of possibleSelectors) {
+            targetContainer = document.querySelector(selector);
+            if (targetContainer) {
+                console.log(`[UserRatings] Found container using selector: ${selector}`);
+                break;
+            }
+        }
         
         if (!targetContainer) {
             // If container not ready yet, retry with backoff
@@ -637,9 +653,11 @@
                 injectionAttempts++;
                 const retryDelay = Math.min(100 * injectionAttempts, 2000); // Exponential backoff up to 2s
                 console.log(`[UserRatings] Container not ready, retry ${injectionAttempts}/${maxInjectionAttempts} in ${retryDelay}ms`);
+                console.log('[UserRatings] Tried selectors:', possibleSelectors.join(', '));
                 setTimeout(injectRatingsUI, retryDelay);
             } else {
                 console.log('[UserRatings] Max injection attempts reached, giving up');
+                console.log('[UserRatings] Available elements:', Array.from(document.querySelectorAll('[class*="detail"]')).map(el => el.className).join(', '));
                 injectionAttempts = 0;
             }
             return;
@@ -690,9 +708,9 @@
         });
     }
 
-    // Watch for page changes
+    // Watch for page changes - use a more targeted observer
     let lastUrl = location.href;
-    new MutationObserver(() => {
+    const bodyObserver = new MutationObserver(() => {
         const url = location.href;
         if (url !== lastUrl) {
             lastUrl = url;
@@ -717,9 +735,19 @@
             injectionAttempts = 0;
             
             // Try injection immediately
-            setTimeout(injectRatingsUI, 100);
+            setTimeout(injectRatingsUI, 50);
         }
-    }).observe(document.body, { subtree: true, childList: true });
+        
+        // Also try injection when detail page elements are added
+        if (url.includes('details?id=') && !document.getElementById('user-ratings-ui')) {
+            const hasDetailContent = document.querySelector('.detailPagePrimaryContent, .detailPageContent, .itemDetailPage');
+            if (hasDetailContent && !isInjecting) {
+                console.log('[UserRatings] Detail content detected, attempting injection');
+                injectRatingsUI();
+            }
+        }
+    });
+    bodyObserver.observe(document.body, { subtree: true, childList: true });
 
     // Initial injection - start immediately with retry logic
     injectRatingsUI();
