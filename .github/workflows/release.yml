@@ -73,24 +73,25 @@ jobs:
           git commit -m "Update version to ${{ steps.get_version.outputs.VERSION }}" || echo "No changes to commit"
           git push origin HEAD:main || echo "Nothing to push"
 
-      - name: Create Pre-Release
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             Jellyfin.Plugin.UserRatings.zip
             Jellyfin.Plugin.UserRatings.zip.md5
-          prerelease: true
+          prerelease: false
           draft: false
-          name: Pre-Release v${{ steps.get_version.outputs.VERSION }}
+          name: Release v${{ steps.get_version.outputs.VERSION }}
           body: |
-            🚧 **Pre-Release Build** 🚧
-            
-            This is a pre-release version for testing purposes.
-            
             ## Installation
             1. Download `Jellyfin.Plugin.UserRatings.zip`
             2. Extract to your Jellyfin plugins directory
             3. Restart Jellyfin
+            
+            Or add this repository URL in Jellyfin:
+            ```
+            https://raw.githubusercontent.com/aG00Dtime/Jellyfin.Plugin.UserRating/refs/tags/v${{ steps.get_version.outputs.VERSION }}/manifest.json
+            ```
             
             ## Changes
             See commit history for details.
