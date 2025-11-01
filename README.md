@@ -30,15 +30,16 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, episo
 
 ## Setup
 
-**No setup required!** After installing and restarting Jellyfin, the ★ button will automatically appear on all item pages.
+**No setup required!** After installing and restarting Jellyfin, the ratings UI will automatically appear on all item detail pages.
 
 ## Usage
 
-1. Navigate to any **movie, TV show, episode, or music** item
-2. Click the **floating ★ button** in the bottom right
-3. **Rate with 1-5 stars**, optionally add a note
-4. Click **Save Rating**
-5. See **all ratings** from other users in the same popup!
+1. Navigate to any **movie, TV show, episode, or music** item detail page
+2. The **User Ratings** section appears at the top of the page
+3. **Rate with 1-5 stars** by clicking the stars
+4. Optionally **add a note** to share your thoughts
+5. Click **Save Rating**
+6. See **all ratings** from other users below your rating!
 
 ### Features
 
