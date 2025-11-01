@@ -811,7 +811,7 @@
                 const details = item.details;
                 const imageUrl = ApiClient.getImageUrl(item.itemId, {
                     type: 'Primary',
-                    maxHeight: 500,
+                    maxHeight: 400,
                     quality: 90
                 });
 
@@ -921,42 +921,65 @@
                 const allItemsSection = document.querySelector('#allItemsSection');
                 if (!allItemsSection) return;
                 
+                const startItem = startIndex + 1;
+                const endItem = Math.min(endIndex, allItems.length);
+                
                 allItemsSection.innerHTML = `
                     <div class="verticalSection">
-                        <div class="sectionTitleContainer sectionTitleContainer-cards padded-left" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1em;">
-                            <h2 class="sectionTitle sectionTitle-cards">All Rated Items (${allItems.length})</h2>
-                            <div style="display: flex; gap: 1em; align-items: center;">
-                                <label style="color: rgba(255,255,255,0.7); font-size: 0.9em;">Sort by:</label>
-                                <select id="sortSelect" style="background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 0.5em 1em; font-size: 0.9em;">
-                                    <option value="rating-desc" ${sortBy === 'rating-desc' ? 'selected' : ''}>Highest Rated</option>
-                                    <option value="rating-asc" ${sortBy === 'rating-asc' ? 'selected' : ''}>Lowest Rated</option>
-                                    <option value="recent" ${sortBy === 'recent' ? 'selected' : ''}>Recently Rated</option>
-                                    <option value="title" ${sortBy === 'title' ? 'selected' : ''}>Title (A-Z)</option>
-                                </select>
+                        <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
+                            <h2 class="sectionTitle sectionTitle-cards">All Rated Items</h2>
+                        </div>
+                        <div class="flex align-items-center justify-content-center flex-wrap-wrap padded-top padded-left padded-right padded-bottom focuscontainer-x">
+                            <div class="paging">
+                                <div class="listPaging">
+                                    <span style="vertical-align:middle;">${startItem}-${endItem} of ${allItems.length}</span>
+                                    <div style="display:inline-block;">
+                                        <button is="paper-icon-button-light" id="prevPage" class="btnPreviousPage autoSize paper-icon-button-light" ${page === 1 ? 'disabled' : ''}>
+                                            <span class="material-icons arrow_back" aria-hidden="true"></span>
+                                        </button>
+                                        <button is="paper-icon-button-light" id="nextPage" class="btnNextPage autoSize paper-icon-button-light" ${page === totalPages ? 'disabled' : ''}>
+                                            <span class="material-icons arrow_forward" aria-hidden="true"></span>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
+                            <button is="paper-icon-button-light" id="btnSort" class="btnSort autoSize paper-icon-button-light" title="Sort">
+                                <span class="material-icons sort_by_alpha" aria-hidden="true"></span>
+                            </button>
                         </div>
                         <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
                             ${buildCategoryGrid(paginatedItems)}
-                        </div>
-                        <div class="padded-left padded-right" style="display: flex; justify-content: center; align-items: center; gap: 1em; padding: 2em; flex-wrap: wrap;">
-                            <button id="prevPage" class="emby-button emby-button-backdropfilter" ${page === 1 ? 'disabled' : ''} style="padding: 0.6em 1.5em;">
-                                <span class="material-icons" style="vertical-align: middle;">chevron_left</span> Previous
-                            </button>
-                            <span style="color: rgba(255,255,255,0.8);">Page ${page} of ${totalPages}</span>
-                            <button id="nextPage" class="emby-button emby-button-backdropfilter" ${page === totalPages ? 'disabled' : ''} style="padding: 0.6em 1.5em;">
-                                Next <span class="material-icons" style="vertical-align: middle;">chevron_right</span>
-                            </button>
                         </div>
                     </div>
                 `;
                 
                 // Add event listeners
-                const sortSelect = document.querySelector('#sortSelect');
-                if (sortSelect) {
-                    sortSelect.addEventListener('change', (e) => {
-                        currentSort = e.target.value;
-                        currentPage = 1;
-                        renderAllItemsSection(currentPage, currentSort);
+                const sortBtn = document.querySelector('#btnSort');
+                if (sortBtn) {
+                    sortBtn.addEventListener('click', () => {
+                        const sortOptions = [
+                            { value: 'rating-desc', label: 'Highest Rated', icon: 'star' },
+                            { value: 'rating-asc', label: 'Lowest Rated', icon: 'star_outline' },
+                            { value: 'recent', label: 'Recently Rated', icon: 'schedule' },
+                            { value: 'title', label: 'Title (A-Z)', icon: 'sort_by_alpha' }
+                        ];
+                        
+                        require(['actionsheet'], (actionsheet) => {
+                            actionsheet.show({
+                                items: sortOptions.map(opt => ({
+                                    name: opt.label,
+                                    id: opt.value,
+                                    selected: opt.value === currentSort
+                                })),
+                                title: 'Sort By'
+                            }).then((newSort) => {
+                                if (newSort) {
+                                    currentSort = newSort;
+                                    currentPage = 1;
+                                    renderAllItemsSection(currentPage, currentSort);
+                                }
+                            });
+                        });
                     });
                 }
                 
