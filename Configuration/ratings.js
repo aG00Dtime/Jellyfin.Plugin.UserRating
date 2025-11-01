@@ -35,6 +35,7 @@
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             transform: scale(0.9);
             transition: transform 0.3s;
+            color: #ffffff;
         }
         .user-ratings-modal-backdrop.show .user-ratings-modal {
             transform: scale(1);
@@ -55,6 +56,7 @@
             margin-bottom: 1em;
             font-weight: 500;
             clear: both;
+            color: #ffffff;
         }
         .user-ratings-item-title {
             font-size: 1.2em;
@@ -156,15 +158,18 @@
             font-size: 1.2em;
             margin-bottom: 1em;
             opacity: 0.8;
+            color: #ffffff;
         }
         .rating-item {
             margin: 0.75em 0;
             padding: 0.75em;
             background: rgba(0, 0, 0, 0.3);
             border-radius: 4px;
+            color: #ffffff;
         }
         .rating-item-user {
             font-weight: 500;
+            color: #ffffff;
         }
         .rating-item-stars {
             color: #ffd700;
@@ -174,6 +179,7 @@
             margin-top: 0.5em;
             opacity: 0.8;
             font-size: 0.9em;
+            color: #cccccc;
         }
         .rating-average {
             display: inline-block;
@@ -444,7 +450,7 @@
         const otherTitle = document.createElement('div');
         otherTitle.className = 'other-ratings-title';
         
-        const average = ratings.reduce((sum, r) => sum + r.Rating, 0) / ratings.length;
+        const average = ratings.reduce((sum, r) => sum + (r.rating || r.Rating || 0), 0) / ratings.length;
         const avgSpan = document.createElement('span');
         avgSpan.className = 'rating-average';
         avgSpan.textContent = `★ ${average.toFixed(1)} (${ratings.length} ${ratings.length === 1 ? 'rating' : 'ratings'})`;
@@ -460,20 +466,22 @@
             const userLine = document.createElement('div');
             const userName = document.createElement('span');
             userName.className = 'rating-item-user';
-            userName.textContent = rating.UserName;
+            userName.textContent = rating.userName || rating.UserName || 'Unknown';
             userLine.appendChild(userName);
             
             const stars = document.createElement('span');
             stars.className = 'rating-item-stars';
-            stars.textContent = '★'.repeat(rating.Rating) + '☆'.repeat(5 - rating.Rating);
+            const ratingValue = rating.rating || rating.Rating || 0;
+            stars.textContent = '★'.repeat(ratingValue) + '☆'.repeat(5 - ratingValue);
             userLine.appendChild(stars);
             
             item.appendChild(userLine);
             
-            if (rating.Note) {
+            const noteText = rating.note || rating.Note;
+            if (noteText) {
                 const note = document.createElement('div');
                 note.className = 'rating-item-note';
-                note.textContent = rating.Note;
+                note.textContent = noteText;
                 item.appendChild(note);
             }
             
