@@ -611,7 +611,7 @@
     }
 
     let injectionAttempts = 0;
-    const maxInjectionAttempts = 30; // Increased for slower-loading episodes
+    const maxInjectionAttempts = 20;
     
     function injectRatingsUI() {
         // Prevent concurrent injections
@@ -628,24 +628,8 @@
             return;
         }
         
-        // Try multiple selectors to find the container (different page types have different structures)
-        const possibleSelectors = [
-            '.detailPagePrimaryContent .detailSection',
-            '.detailPagePrimaryContent',
-            '.detailPageContent .detailSection',
-            '.detailPageContent',
-            '[data-role="page"]:not(.hide) .detailSection',
-            '[data-role="page"]:not(.hide) .itemDetailPage'
-        ];
-        
-        let targetContainer = null;
-        for (const selector of possibleSelectors) {
-            targetContainer = document.querySelector(selector);
-            if (targetContainer) {
-                console.log(`[UserRatings] Found container using selector: ${selector}`);
-                break;
-            }
-        }
+        // Find the detailPagePrimaryContent container
+        const targetContainer = document.querySelector('.detailPagePrimaryContent .detailSection');
         
         if (!targetContainer) {
             // If container not ready yet, retry with backoff
@@ -653,11 +637,9 @@
                 injectionAttempts++;
                 const retryDelay = Math.min(100 * injectionAttempts, 2000); // Exponential backoff up to 2s
                 console.log(`[UserRatings] Container not ready, retry ${injectionAttempts}/${maxInjectionAttempts} in ${retryDelay}ms`);
-                console.log('[UserRatings] Tried selectors:', possibleSelectors.join(', '));
                 setTimeout(injectRatingsUI, retryDelay);
             } else {
                 console.log('[UserRatings] Max injection attempts reached, giving up');
-                console.log('[UserRatings] Available elements:', Array.from(document.querySelectorAll('[class*="detail"]')).map(el => el.className).join(', '));
                 injectionAttempts = 0;
             }
             return;
@@ -708,9 +690,9 @@
         });
     }
 
-    // Watch for page changes - use a more targeted observer
+    // Watch for page changes
     let lastUrl = location.href;
-    const bodyObserver = new MutationObserver(() => {
+    new MutationObserver(() => {
         const url = location.href;
         if (url !== lastUrl) {
             lastUrl = url;
@@ -735,19 +717,9 @@
             injectionAttempts = 0;
             
             // Try injection immediately
-            setTimeout(injectRatingsUI, 50);
+            setTimeout(injectRatingsUI, 100);
         }
-        
-        // Also try injection when detail page elements are added
-        if (url.includes('details?id=') && !document.getElementById('user-ratings-ui')) {
-            const hasDetailContent = document.querySelector('.detailPagePrimaryContent, .detailPageContent, .itemDetailPage');
-            if (hasDetailContent && !isInjecting) {
-                console.log('[UserRatings] Detail content detected, attempting injection');
-                injectRatingsUI();
-            }
-        }
-    });
-    bodyObserver.observe(document.body, { subtree: true, childList: true });
+    }).observe(document.body, { subtree: true, childList: true });
 
     // Initial injection - start immediately with retry logic
     injectRatingsUI();
@@ -803,21 +775,14 @@
         setTimeout(injectRatingsUI, 100);
     });
 
-    console.log('[UserRatings] Setting up tab injection...');
-
     // Function to display ratings list in the home page content area
     async function displayRatingsList() {
-        console.log('[UserRatings] Displaying ratings list...');
-        
         // Find or create the ratings tab content container
         let ratingsTabContent = document.querySelector('#ratingsTab');
         
             if (!ratingsTabContent) {
-                console.log('[UserRatings] Creating new ratings tab content container...');
-                
                 // Find the home page - this is the main page container
                 const homePage = document.querySelector('[data-role="page"]:not(.hide)');
-                console.log('[UserRatings] Found home page:', homePage);
                 
                 if (!homePage) {
                     console.error('[UserRatings] Could not find home page');
@@ -837,8 +802,6 @@
                     scrollContainer = homePage;
                 }
                 
-                console.log('[UserRatings] Using container:', scrollContainer.className);
-                
                 ratingsTabContent = document.createElement('div');
                 ratingsTabContent.id = 'ratingsTab';
                 ratingsTabContent.className = 'page homePage libraryPage hide';
@@ -852,23 +815,17 @@
                 
                 // Add as sibling to home page
                 homePage.parentNode.appendChild(ratingsTabContent);
-                
-                console.log('[UserRatings] Created ratings tab as sibling to home page');
-            } else {
-                console.log('[UserRatings] Found existing ratings tab content');
             }
         
         // Hide the home page and show ratings tab
         const homePage = document.querySelector('[data-role="page"]:not(.hide):not(#ratingsTab)');
         if (homePage) {
             homePage.classList.add('hide');
-            console.log('[UserRatings] Hid home page');
         }
         
         ratingsTabContent.classList.remove('hide');
         ratingsTabContent.style.display = 'block';
         ratingsTabContent.style.pointerEvents = 'auto';
-        console.log('[UserRatings] Ratings tab now visible');
 
         // Show loading
         ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
@@ -942,17 +899,14 @@
             try {
                 const pluginConfig = await ApiClient.getPluginConfiguration('b8c5d3e7-4f6a-8b9c-1d2e-3f4a5b6c7d8e');
                 recentItemsLimit = pluginConfig.RecentlyRatedItemsCount || 10;
-                console.log('[UserRatings] Using configured recent items limit:', recentItemsLimit);
             } catch (error) {
-                console.warn('[UserRatings] Could not load config, using default limit of 10');
+                // Use default limit of 10
             }
 
             // Categorize items by type
             const movies = itemsWithDetails.filter(item => item.details.Type === 'Movie');
             const series = itemsWithDetails.filter(item => item.details.Type === 'Series');
             const episodes = itemsWithDetails.filter(item => item.details.Type === 'Episode');
-
-            console.log('[UserRatings] Categorized items - Movies:', movies.length, 'Series:', series.length, 'Episodes:', episodes.length);
 
             // Sort each category by most recently rated and limit to configured count
             const sortByRecent = (a, b) => (b.lastRatedTimestamp || 0) - (a.lastRatedTimestamp || 0);
@@ -1165,9 +1119,6 @@
             
             sectionsHTML += '<div id="allItemsSection"></div></div>';
             
-            console.log('[UserRatings] Sections HTML length:', sectionsHTML.length);
-            console.log('[UserRatings] First 500 chars:', sectionsHTML.substring(0, 500));
-            
             // Display the categorized grid
             ratingsTabContent.innerHTML = sectionsHTML;
             ratingsTabContent.style.pointerEvents = 'auto'; // Ensure clicks work
@@ -1183,10 +1134,6 @@
                     window.location.hash = `#/details?id=${itemId}&serverId=${serverId}`;
                 });
             });
-            
-            console.log('[UserRatings] Content rendered, checking for headers...');
-            const headers = ratingsTabContent.querySelectorAll('.sectionTitle');
-            console.log('[UserRatings] Found', headers.length, 'section headers');
 
         } catch (error) {
             console.error('[UserRatings] Error displaying ratings list:', error);
@@ -1206,19 +1153,13 @@
                 return;
             }
             
-            console.log('[UserRatings] ===== TAB INJECTION ATTEMPT =====');
-            console.log('[UserRatings] Current URL hash:', window.location.hash);
-            console.log('[UserRatings] Page ready state:', document.readyState);
-            
             // Check if tab already exists
             const existingTab = document.querySelector('[data-ratings-tab="true"]');
             if (existingTab) {
-                console.log('[UserRatings] Tab already exists, skipping injection');
                 return;
             }
 
             // Try to find the tabs container by locating the Home button first
-            console.log('[UserRatings] Strategy 1: Looking for Home button...');
             const homeButton = Array.from(document.querySelectorAll('.emby-tab-button')).find(btn => 
                 btn.textContent.trim().toLowerCase().includes('home')
             );
@@ -1226,45 +1167,15 @@
             let tabsSlider = null;
             
             if (homeButton) {
-                console.log('[UserRatings] ✓ Found Home button, getting parent container...');
                 tabsSlider = homeButton.parentElement;
-                console.log('[UserRatings] Parent container:', tabsSlider.className);
             } else {
-                console.log('[UserRatings] Home button not found, trying Strategy 2...');
-                
                 // Strategy 2: Look for .emby-tabs-slider
-                console.log('[UserRatings] Looking for .emby-tabs-slider...');
                 tabsSlider = document.querySelector('.emby-tabs-slider');
             }
             
-            console.log('[UserRatings] Tabs slider found:', !!tabsSlider);
-            
             if (!tabsSlider) {
-                console.warn('[UserRatings] ❌ INJECTION FAILED: Could not find tabs container');
-                
-                // Try alternative selectors and log what we find
-                const altSelectors = [
-                    '.homePage .emby-tabs-slider',
-                    '[data-role="page"] .emby-tabs-slider',
-                    '.emby-tabs',
-                    '.tabControls',
-                    '.emby-tab-button'
-                ];
-                
-                console.log('[UserRatings] Searching for alternative selectors...');
-                for (const selector of altSelectors) {
-                    const element = document.querySelector(selector);
-                    console.log(`[UserRatings] ${selector}: ${element ? 'FOUND ✓' : 'not found'}`);
-                    if (element) {
-                        console.log(`[UserRatings] Element tag: ${element.tagName}, class: ${element.className}`);
-                    }
-                }
-                
-                console.log('[UserRatings] Will retry...');
                 return;
             }
-
-            console.log('[UserRatings] ✓ Found tabs container, proceeding with injection...');
 
         // Get the next index
         const existingTabs = tabsSlider.querySelectorAll('.emby-tab-button');
@@ -1282,7 +1193,6 @@
         // Add click handler
         ratingsTab.addEventListener('click', async function(e) {
             e.preventDefault();
-            console.log('[UserRatings] Tab clicked');
             
             // Remove active class from all tabs
             tabsSlider.querySelectorAll('.emby-tab-button').forEach(tab => {
@@ -1292,11 +1202,9 @@
             // Add active class to this tab
             ratingsTab.classList.add('emby-tab-button-active');
             
-            console.log('[UserRatings] Calling displayRatingsList...');
             try {
                 // Load and display ratings list in the home page
                 await displayRatingsList();
-                console.log('[UserRatings] displayRatingsList completed');
             } catch (error) {
                 console.error('[UserRatings] Error in displayRatingsList:', error);
             }
@@ -1306,8 +1214,6 @@
         const otherTabs = tabsSlider.querySelectorAll('.emby-tab-button:not([data-ratings-tab="true"])');
         otherTabs.forEach((tab, index) => {
             tab.addEventListener('click', function(e) {
-                console.log('[UserRatings] Other tab clicked, switching away from ratings');
-                
                 // Hide ratings tab
                 const ratingsTabContent = document.querySelector('#ratingsTab');
                 if (ratingsTabContent) {
@@ -1319,20 +1225,15 @@
                 const homePage = document.querySelector('[data-role="page"].hide:not(#ratingsTab)');
                 if (homePage) {
                     homePage.classList.remove('hide');
-                    console.log('[UserRatings] Restored home page');
                 }
             }, true); // Use capture to run before Jellyfin's handler
         });
 
             // Insert the tab
             tabsSlider.appendChild(ratingsTab);
-            console.log('[UserRatings] ✅ SUCCESS: Tab injected into home screen!');
-            console.log('[UserRatings] ===== INJECTION COMPLETE =====');
             
         } catch (error) {
-            console.error('[UserRatings] ❌ INJECTION ERROR:', error);
-            console.error('[UserRatings] Error stack:', error.stack);
-            console.log('[UserRatings] ===== INJECTION FAILED =====');
+            console.error('[UserRatings] Tab injection error:', error);
         }
     }
 
@@ -1341,8 +1242,6 @@
         injectRatingsTab();
     }
 
-    console.log('[UserRatings] Starting tab injection attempts...');
-    
     // Try immediately and repeatedly
     injectRatingsTab();
     setTimeout(injectRatingsTab, 100);
@@ -1365,6 +1264,4 @@
         subtree: true,
         childList: true
     });
-
-    console.log('[UserRatings] Plugin initialized with inline interface and navigation');
 })();

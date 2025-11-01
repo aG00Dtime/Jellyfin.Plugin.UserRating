@@ -9,20 +9,20 @@
     "imageUrl": "https://raw.githubusercontent.com/aG00Dtime/Jellyfin.Plugin.UserRating/main/icon.png",
     "versions": [
       {
-        "version": "1.5.10.0",
-        "changelog": "Fix episode page detection - review section now appears on episodes",
-        "targetAbi": "10.9.0.0",
-        "sourceUrl": "https://github.com/aG00Dtime/Jellyfin.Plugin.UserRating/releases/download/v1.5.10/Jellyfin.Plugin.UserRatings.zip",
-        "checksum": "placeholder",
-        "timestamp": "2025-11-01T16:30:00Z"
-      },
-      {
         "version": "1.5.9.0",
-        "changelog": "Release 1.5.9",
+        "changelog": "Fix UI injection reliability - review section now shows consistently on first load",
         "targetAbi": "10.9.0.0",
         "sourceUrl": "https://github.com/aG00Dtime/Jellyfin.Plugin.UserRating/releases/download/v1.5.9/Jellyfin.Plugin.UserRatings.zip",
-        "checksum": "17b7a1a08f69f70e1893bb7e8c4d4e15",
-        "timestamp": "2025-11-01T16:22:32Z"
+        "checksum": "ce1ca00eb67f507cffb82b7d9d164bce",
+        "timestamp": "2025-11-01T16:21:00Z"
+      },
+      {
+        "version": "1.5.8.0",
+        "changelog": "Release 1.5.8",
+        "targetAbi": "10.9.0.0",
+        "sourceUrl": "https://github.com/aG00Dtime/Jellyfin.Plugin.UserRating/releases/download/v1.5.8/Jellyfin.Plugin.UserRatings.zip",
+        "checksum": "a546670543694b8f35acc0dd89b5b9fe",
+        "timestamp": "2025-11-01T16:01:21Z"
       }
     ]
   }
