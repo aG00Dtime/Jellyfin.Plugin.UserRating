@@ -225,7 +225,7 @@
 
     async function loadRatings(itemId) {
         try {
-            const response = await fetch(ApiClient.getUrl(`UserRatings/Item/${itemId}`), {
+            const response = await fetch(ApiClient.getUrl(`api/UserRatings/Item/${itemId}`), {
                 headers: {
                     'X-Emby-Token': ApiClient.accessToken()
                 }
@@ -240,7 +240,7 @@
 
     async function loadMyRating(itemId) {
         try {
-            const response = await fetch(ApiClient.getUrl(`UserRatings/MyRating/${itemId}`), {
+            const response = await fetch(ApiClient.getUrl(`api/UserRatings/MyRating/${itemId}`), {
                 headers: {
                     'X-Emby-Token': ApiClient.accessToken()
                 }
@@ -255,7 +255,7 @@
 
     async function saveRating(itemId, rating, note) {
         try {
-            const url = ApiClient.getUrl(`UserRatings/Rate?itemId=${itemId}&rating=${rating}${note ? '&note=' + encodeURIComponent(note) : ''}`);
+            const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&rating=${rating}${note ? '&note=' + encodeURIComponent(note) : ''}`);
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -278,7 +278,7 @@
 
     async function deleteRating(itemId) {
         try {
-            const url = ApiClient.getUrl(`UserRatings/Rating?itemId=${itemId}`);
+            const url = ApiClient.getUrl(`api/UserRatings/Rating?itemId=${itemId}`);
             const response = await fetch(url, {
                 method: 'DELETE',
                 headers: {
@@ -520,6 +520,7 @@
         // Check if we're on an item details page
         const path = window.location.pathname;
         const hash = window.location.hash;
+        const fullUrl = path + hash + window.location.search;
         
         // Try multiple ways to get the item ID
         let itemId = null;
@@ -529,29 +530,41 @@
         const urlParams = new URLSearchParams(window.location.search);
         itemId = urlParams.get('id');
         
-        // Method 2: From hash
-        if (!itemId && hash.includes('id=')) {
-            const match = hash.match(/id=([a-f0-9-]+)/i);
-            if (match) itemId = match[1];
+        // Method 2: From hash parameters
+        if (!itemId && hash.includes('?')) {
+            const hashParams = new URLSearchParams(hash.split('?')[1]);
+            itemId = hashParams.get('id');
         }
         
-        // Method 3: From path
-        if (!itemId && path.includes('/item')) {
-            const match = path.match(/\/item\/([a-f0-9-]+)/i);
-            if (match) itemId = match[1];
-        }
-        
-        // Method 4: Check for details page class
-        if (!itemId && (path.includes('/details') || hash.includes('details'))) {
-            const match = (path + hash).match(/id=([a-f0-9-]+)/i);
-            if (match) itemId = match[1];
+        // Method 3: Match any GUID pattern in the URL
+        if (!itemId) {
+            const guidMatch = fullUrl.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+            if (guidMatch) {
+                // Verify this is on a details page
+                if (fullUrl.includes('details') || fullUrl.includes('item') || 
+                    document.querySelector('.detailPage, .itemDetailsPage, .detailsPage')) {
+                    itemId = guidMatch[1];
+                }
+            }
         }
         
         if (itemId) {
-            // Try to get item name from page
-            const titleElements = document.querySelectorAll('h1, .itemName, .detailPagePrimaryTitle');
-            for (const el of titleElements) {
-                if (el.textContent && el.textContent.trim()) {
+            // Try to get item name from page - more selectors
+            const titleSelectors = [
+                'h1.pageTitle',
+                'h1',
+                '.itemName',
+                '.detailPagePrimaryTitle',
+                '.detailsTitle',
+                '[class*="itemName"]',
+                '[class*="title"]'
+            ];
+            
+            for (const selector of titleSelectors) {
+                const el = document.querySelector(selector);
+                if (el && el.textContent && el.textContent.trim() && 
+                    !el.textContent.includes('Dashboard') && 
+                    !el.textContent.includes('Settings')) {
                     itemName = el.textContent.trim();
                     break;
                 }

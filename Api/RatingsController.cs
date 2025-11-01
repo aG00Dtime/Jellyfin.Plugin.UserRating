@@ -13,8 +13,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Jellyfin.Plugin.UserRatings.Api
 {
     [ApiController]
-    [Route("UserRatings")]
-    [Authorize]
+    [Route("api/UserRatings")]
+    [Authorize(Policy = "DefaultAuthorization")]
     public class RatingsController : ControllerBase
     {
         private readonly RatingRepository _repository;
