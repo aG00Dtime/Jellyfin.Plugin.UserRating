@@ -343,14 +343,15 @@
         }
     }
 
-    function seamlessPageRefresh(itemId) {
+    function seamlessPageRefresh(itemId, force = false) {
         // Don't refresh if we're currently navigating or just navigated
-        if (isNavigating || (Date.now() - lastNavigationTime) < 2000) {
+        // Unless forced (from final zero-size check)
+        if (!force && (isNavigating || (Date.now() - lastNavigationTime) < 2000)) {
             console.log('[UserRatings] Skipping refresh - navigation in progress');
             return;
         }
         
-        console.log('[UserRatings] Attempting seamless page refresh');
+        console.log('[UserRatings] Attempting seamless page refresh', force ? '(FORCED)' : '');
         isNavigating = true;
         lastNavigationTime = Date.now();
         
@@ -812,21 +813,31 @@
                 
                 // Check if zero size or was flagged during creation
                 if (hasZeroSize || hasZeroSizeFlag) {
-                    // Only block if we're actively navigating (not just injected)
-                    const recentlyNavigated = isNavigating && (Date.now() - lastNavigationTime) < 500;
-                    if (recentlyNavigated && checkName !== 'Final') {
-                        console.log('[UserRatings] Skipping refresh check - very recent navigation');
-                        return false;
+                    // Final check always forces refresh (bypasses navigation check)
+                    const isFinalCheck = checkName === 'Final';
+                    
+                    if (!isFinalCheck) {
+                        // Only block if we're actively navigating (not just injected)
+                        const recentlyNavigated = isNavigating && (Date.now() - lastNavigationTime) < 500;
+                        if (recentlyNavigated) {
+                            console.log('[UserRatings] Skipping refresh check - very recent navigation');
+                            return false;
+                        }
+                    } else {
+                        // For final check, clear navigation flags to allow refresh
+                        console.log('[UserRatings] Final check detected zero size - forcing refresh');
+                        isNavigating = false;
+                        lastNavigationTime = 0;
                     }
                     
-                    console.log('[UserRatings] UI has zero size, triggering refresh');
+                    console.log('[UserRatings] UI has zero size, triggering refresh', isFinalCheck ? '(FORCED)' : '');
                     const injectedUI = document.getElementById('user-ratings-ui');
                     if (injectedUI) {
                         injectedUI.remove();
                     }
                     isInjecting = false;
                     hasTriedRefresh = false; // Allow refresh to be tried
-                    seamlessPageRefresh(itemId);
+                    seamlessPageRefresh(itemId, isFinalCheck); // Force if final check
                     return true; // Refresh triggered
                 } else {
                     // Clear any zero size flag on success
