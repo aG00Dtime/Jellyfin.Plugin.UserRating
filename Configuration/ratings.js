@@ -174,6 +174,7 @@
 
     let currentItemId = null;
     let currentRating = 0;
+    let isInjecting = false; // Flag to prevent concurrent injections
 
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
@@ -516,17 +517,24 @@
     }
 
     function injectRatingsUI() {
-        // Remove existing UI if any
+        // Prevent concurrent injections
+        if (isInjecting) {
+            console.log('[UserRatings] Already injecting, skipping');
+            return;
+        }
+        
+        // Check if UI already exists - if so, don't inject again
         const existingUI = document.getElementById('user-ratings-ui');
         if (existingUI) {
-            existingUI.remove();
+            console.log('[UserRatings] UI already exists, skipping injection');
+            return;
         }
         
         // Find the detailPagePrimaryContent container
         const targetContainer = document.querySelector('.detailPagePrimaryContent .detailSection');
         
         if (!targetContainer) {
-            console.log('[UserRatings] Target container not found');
+            // Silently return if container not ready yet
             return;
         }
         
@@ -552,12 +560,23 @@
             return;
         }
         
+        // Skip if it's the same item we just injected for
+        if (currentItemId === itemId && existingUI) {
+            console.log('[UserRatings] Same item, UI exists, skipping');
+            return;
+        }
+        
         currentItemId = itemId;
+        isInjecting = true;
         console.log('[UserRatings] Injecting UI for item:', itemId);
         
         // Create and inject UI at the end of detailSection
         createRatingsUI(itemId).then(ui => {
             targetContainer.appendChild(ui);
+            isInjecting = false;
+        }).catch(err => {
+            console.error('[UserRatings] Error creating UI:', err);
+            isInjecting = false;
         });
     }
 
@@ -567,6 +586,25 @@
         const url = location.href;
         if (url !== lastUrl) {
             lastUrl = url;
+            
+            // Remove old UI when navigating to a new page
+            const oldUI = document.getElementById('user-ratings-ui');
+            if (oldUI) {
+                console.log('[UserRatings] Removing old UI on navigation');
+                oldUI.remove();
+            }
+            
+            // Hide ratings tab when navigating away from home
+            const ratingsTab = document.querySelector('#ratingsTab');
+            if (ratingsTab && !url.includes('#/home')) {
+                console.log('[UserRatings] Hiding ratings tab on navigation away from home');
+                ratingsTab.classList.remove('is-active');
+                ratingsTab.style.display = 'none';
+            }
+            
+            // Reset injection flag
+            isInjecting = false;
+            
             setTimeout(injectRatingsUI, 500);
         }
     }).observe(document.body, { subtree: true, childList: true });
@@ -575,7 +613,471 @@
     setTimeout(injectRatingsUI, 1000);
     
     // Also check on hash change
-    window.addEventListener('hashchange', () => setTimeout(injectRatingsUI, 500));
+    window.addEventListener('hashchange', () => {
+        // Remove old UI on hash change
+        const oldUI = document.getElementById('user-ratings-ui');
+        if (oldUI) {
+            oldUI.remove();
+        }
+        
+        // Manage page visibility
+        const ratingsTab = document.querySelector('#ratingsTab');
+        const currentHash = window.location.hash;
+        
+        if (ratingsTab) {
+            if (!currentHash.includes('home')) {
+                // Navigating away from home - hide ratings page
+                console.log('[UserRatings] Navigating away from home - hiding ratings page');
+                ratingsTab.style.display = 'none';
+                ratingsTab.classList.add('hide');
+            } else if (currentHash.includes('home')) {
+                // Navigating back to home - ensure ratings page is hidden and only show home page
+                console.log('[UserRatings] Navigating to home - ensuring clean state');
+                ratingsTab.style.display = 'none';
+                ratingsTab.classList.add('hide');
+                
+                // Hide ALL pages except home
+                const allPages = document.querySelectorAll('[data-role="page"]');
+                allPages.forEach(page => {
+                    if (page.id === 'ratingsTab' || !page.classList.contains('homePage')) {
+                        page.classList.add('hide');
+                        page.style.display = 'none';
+                    }
+                });
+                
+                // Show only the home page
+                const homePage = document.querySelector('[data-role="page"].homePage:not(#ratingsTab)');
+                if (homePage) {
+                    homePage.classList.remove('hide');
+                    homePage.style.display = '';
+                    console.log('[UserRatings] Restored home page only');
+                }
+            }
+        }
+        
+        isInjecting = false;
+        setTimeout(injectRatingsUI, 500);
+    });
 
-    console.log('[UserRatings] Plugin initialized with inline interface');
+    console.log('[UserRatings] Setting up tab injection...');
+
+    // Function to display ratings list in the home page content area
+    async function displayRatingsList() {
+        console.log('[UserRatings] Displaying ratings list...');
+        
+        // Find or create the ratings tab content container
+        let ratingsTabContent = document.querySelector('#ratingsTab');
+        
+            if (!ratingsTabContent) {
+                console.log('[UserRatings] Creating new ratings tab content container...');
+                
+                // Find the home page - this is the main page container
+                const homePage = document.querySelector('[data-role="page"]:not(.hide)');
+                console.log('[UserRatings] Found home page:', homePage);
+                
+                if (!homePage) {
+                    console.error('[UserRatings] Could not find home page');
+                    return;
+                }
+                
+                // Try multiple selectors to find the content container
+                let scrollContainer = homePage.querySelector('.scrollY');
+                if (!scrollContainer) {
+                    scrollContainer = homePage.querySelector('.pageTabContent');
+                }
+                if (!scrollContainer) {
+                    scrollContainer = homePage.querySelector('.scrollContainer');
+                }
+                if (!scrollContainer) {
+                    // Just use the page itself as the container
+                    scrollContainer = homePage;
+                }
+                
+                console.log('[UserRatings] Using container:', scrollContainer.className);
+                
+                ratingsTabContent = document.createElement('div');
+                ratingsTabContent.id = 'ratingsTab';
+                ratingsTabContent.className = 'page homePage libraryPage hide';
+                ratingsTabContent.setAttribute('data-role', 'page');
+                ratingsTabContent.style.position = 'absolute';
+                ratingsTabContent.style.top = '0';
+                ratingsTabContent.style.left = '0';
+                ratingsTabContent.style.right = '0';
+                ratingsTabContent.style.bottom = '0';
+                ratingsTabContent.style.overflow = 'auto';
+                
+                // Add as sibling to home page
+                homePage.parentNode.appendChild(ratingsTabContent);
+                
+                console.log('[UserRatings] Created ratings tab as sibling to home page');
+            } else {
+                console.log('[UserRatings] Found existing ratings tab content');
+            }
+        
+        // Hide the home page and show ratings tab
+        const homePage = document.querySelector('[data-role="page"]:not(.hide):not(#ratingsTab)');
+        if (homePage) {
+            homePage.classList.add('hide');
+            console.log('[UserRatings] Hid home page');
+        }
+        
+        ratingsTabContent.classList.remove('hide');
+        ratingsTabContent.style.display = 'block';
+        ratingsTabContent.style.pointerEvents = 'auto';
+        console.log('[UserRatings] Ratings tab now visible');
+
+        // Show loading
+        ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
+
+        try {
+            // Get all rated items
+            const ratingsResponse = await fetch(ApiClient.getUrl('api/UserRatings/AllRatedItems'), {
+                headers: {
+                    'X-Emby-Token': ApiClient.accessToken()
+                }
+            });
+
+            if (!ratingsResponse.ok) {
+                throw new Error('Failed to load ratings');
+            }
+
+            const ratingsData = await ratingsResponse.json();
+            const items = ratingsData.items || [];
+
+            if (items.length === 0) {
+                ratingsTabContent.innerHTML = `
+                    <div style="padding: 4em 2em; text-align: center;">
+                        <div style="font-size: 4em; margin-bottom: 0.5em; opacity: 0.3;">★</div>
+                        <div style="font-size: 1.2em; color: rgba(255, 255, 255, 0.6);">No rated items yet</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Fetch item details from Jellyfin
+            const itemPromises = items.map(async (item) => {
+                try {
+                    const itemDetails = await ApiClient.getItem(ApiClient.getCurrentUserId(), item.itemId);
+                    return {
+                        ...item,
+                        details: itemDetails
+                    };
+                } catch (error) {
+                    console.error('[UserRatings] Error loading item details:', error);
+                    return null;
+                }
+            });
+
+            const itemsWithDetails = (await Promise.all(itemPromises)).filter(item => item !== null);
+
+            if (itemsWithDetails.length === 0) {
+                ratingsTabContent.innerHTML = `
+                    <div style="padding: 4em 2em; text-align: center;">
+                        <div style="font-size: 1.2em; color: rgba(255, 255, 255, 0.6);">Could not load item details</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Get all ratings with timestamps to sort by recently rated
+            const allRatingsResponse = await fetch(ApiClient.getUrl('api/UserRatings/AllRatedItems'), {
+                headers: {
+                    'X-Emby-Token': ApiClient.accessToken()
+                }
+            });
+            const allRatingsData = await allRatingsResponse.json();
+
+            // Add timestamp info to items
+            itemsWithDetails.forEach(item => {
+                const ratingInfo = allRatingsData.items.find(r => r.itemId === item.itemId);
+                item.lastRatedTimestamp = ratingInfo?.lastRated || 0;
+            });
+
+            // Categorize items by type
+            const movies = itemsWithDetails.filter(item => item.details.Type === 'Movie');
+            const series = itemsWithDetails.filter(item => item.details.Type === 'Series');
+            const episodes = itemsWithDetails.filter(item => item.details.Type === 'Episode');
+
+            console.log('[UserRatings] Categorized items - Movies:', movies.length, 'Series:', series.length, 'Episodes:', episodes.length);
+
+            // Sort each category by most recently rated
+            const sortByRecent = (a, b) => (b.lastRatedTimestamp || 0) - (a.lastRatedTimestamp || 0);
+            movies.sort(sortByRecent);
+            series.sort(sortByRecent);
+            episodes.sort(sortByRecent);
+
+            // Function to build the ratings grid HTML for a category
+            const buildCategoryGrid = (items) => items.map(item => {
+                const details = item.details;
+                const imageUrl = ApiClient.getImageUrl(item.itemId, {
+                    type: 'Primary',
+                    maxWidth: 400,
+                    quality: 90
+                });
+
+                const title = details.Name || 'Unknown';
+                const rating = item.averageRating.toFixed(1);
+                const count = item.totalRatings;
+                const serverId = ApiClient.serverId();
+
+                return `
+                    <div class="card portraitCard" data-item-id="${item.itemId}" style="cursor: pointer;">
+                        <div class="cardBox visualCardBox">
+                            <div class="cardScalable">
+                                <div class="cardPadder cardPadder-portrait"></div>
+                                <div class="cardContent">
+                                    <div class="cardImageContainer coveredImage">
+                                        <img src="${imageUrl}" class="cardImage cardImage-img" loading="lazy" decoding="async" draggable="false">
+                                        <div class="cardIndicators cardIndicators-bottomright">
+                                            <div style="background: rgba(0,0,0,0.85); padding: 0.4em 0.7em; border-radius: 4px; display: inline-flex; align-items: center; gap: 0.3em;">
+                                                <span style="color: #ffd700; font-size: 1.1em;">★</span>
+                                                <span style="font-weight: 600;">${rating}</span>
+                                                <span style="opacity: 0.7; font-size: 0.85em;">(${count})</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="cardFooter">
+                                <div class="cardText cardText-first">${title}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Build sections HTML matching native Jellyfin structure with explicit spacing
+            let sectionsHTML = '<div class="readOnlyContent" style="padding-top: 4em;">';
+            
+            if (movies.length > 0) {
+                sectionsHTML += `
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
+                            <h2 class="sectionTitle sectionTitle-cards">Recently Rated Movies</h2>
+                        </div>
+                        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
+                            ${buildCategoryGrid(movies)}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (series.length > 0) {
+                sectionsHTML += `
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
+                            <h2 class="sectionTitle sectionTitle-cards">Recently Rated Shows</h2>
+                        </div>
+                        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
+                            ${buildCategoryGrid(series)}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            if (episodes.length > 0) {
+                sectionsHTML += `
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer sectionTitleContainer-cards padded-left">
+                            <h2 class="sectionTitle sectionTitle-cards">Recently Rated Episodes</h2>
+                        </div>
+                        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
+                            ${buildCategoryGrid(episodes)}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            sectionsHTML += '</div>';
+            
+            console.log('[UserRatings] Sections HTML length:', sectionsHTML.length);
+            console.log('[UserRatings] First 500 chars:', sectionsHTML.substring(0, 500));
+            
+            // Display the categorized grid
+            ratingsTabContent.innerHTML = sectionsHTML;
+            ratingsTabContent.style.pointerEvents = 'auto'; // Ensure clicks work
+            
+            console.log('[UserRatings] Content rendered, checking for headers...');
+            const headers = ratingsTabContent.querySelectorAll('.sectionTitle');
+            console.log('[UserRatings] Found', headers.length, 'section headers');
+
+        } catch (error) {
+            console.error('[UserRatings] Error displaying ratings list:', error);
+            ratingsTabContent.innerHTML = `
+                <div style="padding: 2em; background: rgba(229, 57, 53, 0.2); border: 1px solid rgba(229, 57, 53, 0.5); border-radius: 8px; color: #ff6b6b; margin: 2em;">
+                    <strong>Error:</strong> ${error.message}
+                </div>
+            `;
+        }
+    }
+
+    // Inject ratings tab on home screen
+    function injectRatingsTab() {
+        try {
+            // Only inject on home page
+            if (!window.location.hash.includes('home')) {
+                return;
+            }
+            
+            console.log('[UserRatings] ===== TAB INJECTION ATTEMPT =====');
+            console.log('[UserRatings] Current URL hash:', window.location.hash);
+            console.log('[UserRatings] Page ready state:', document.readyState);
+            
+            // Check if tab already exists
+            const existingTab = document.querySelector('[data-ratings-tab="true"]');
+            if (existingTab) {
+                console.log('[UserRatings] Tab already exists, skipping injection');
+                return;
+            }
+
+            // Try to find the tabs container by locating the Home button first
+            console.log('[UserRatings] Strategy 1: Looking for Home button...');
+            const homeButton = Array.from(document.querySelectorAll('.emby-tab-button')).find(btn => 
+                btn.textContent.trim().toLowerCase().includes('home')
+            );
+            
+            let tabsSlider = null;
+            
+            if (homeButton) {
+                console.log('[UserRatings] ✓ Found Home button, getting parent container...');
+                tabsSlider = homeButton.parentElement;
+                console.log('[UserRatings] Parent container:', tabsSlider.className);
+            } else {
+                console.log('[UserRatings] Home button not found, trying Strategy 2...');
+                
+                // Strategy 2: Look for .emby-tabs-slider
+                console.log('[UserRatings] Looking for .emby-tabs-slider...');
+                tabsSlider = document.querySelector('.emby-tabs-slider');
+            }
+            
+            console.log('[UserRatings] Tabs slider found:', !!tabsSlider);
+            
+            if (!tabsSlider) {
+                console.warn('[UserRatings] ❌ INJECTION FAILED: Could not find tabs container');
+                
+                // Try alternative selectors and log what we find
+                const altSelectors = [
+                    '.homePage .emby-tabs-slider',
+                    '[data-role="page"] .emby-tabs-slider',
+                    '.emby-tabs',
+                    '.tabControls',
+                    '.emby-tab-button'
+                ];
+                
+                console.log('[UserRatings] Searching for alternative selectors...');
+                for (const selector of altSelectors) {
+                    const element = document.querySelector(selector);
+                    console.log(`[UserRatings] ${selector}: ${element ? 'FOUND ✓' : 'not found'}`);
+                    if (element) {
+                        console.log(`[UserRatings] Element tag: ${element.tagName}, class: ${element.className}`);
+                    }
+                }
+                
+                console.log('[UserRatings] Will retry...');
+                return;
+            }
+
+            console.log('[UserRatings] ✓ Found tabs container, proceeding with injection...');
+
+        // Get the next index
+        const existingTabs = tabsSlider.querySelectorAll('.emby-tab-button');
+        const nextIndex = existingTabs.length;
+
+        // Create the ratings tab button
+        const ratingsTab = document.createElement('button');
+        ratingsTab.type = 'button';
+        ratingsTab.setAttribute('is', 'emby-button');
+        ratingsTab.className = 'emby-tab-button emby-button';
+        ratingsTab.setAttribute('data-index', nextIndex);
+        ratingsTab.setAttribute('data-ratings-tab', 'true');
+        ratingsTab.innerHTML = '<div class="emby-button-foreground">User Ratings</div>';
+
+        // Add click handler
+        ratingsTab.addEventListener('click', async function(e) {
+            e.preventDefault();
+            console.log('[UserRatings] Tab clicked');
+            
+            // Remove active class from all tabs
+            tabsSlider.querySelectorAll('.emby-tab-button').forEach(tab => {
+                tab.classList.remove('emby-tab-button-active');
+            });
+            
+            // Add active class to this tab
+            ratingsTab.classList.add('emby-tab-button-active');
+            
+            console.log('[UserRatings] Calling displayRatingsList...');
+            try {
+                // Load and display ratings list in the home page
+                await displayRatingsList();
+                console.log('[UserRatings] displayRatingsList completed');
+            } catch (error) {
+                console.error('[UserRatings] Error in displayRatingsList:', error);
+            }
+        });
+
+        // Add listeners to other tabs to properly switch content
+        const otherTabs = tabsSlider.querySelectorAll('.emby-tab-button:not([data-ratings-tab="true"])');
+        otherTabs.forEach((tab, index) => {
+            tab.addEventListener('click', function(e) {
+                console.log('[UserRatings] Other tab clicked, switching away from ratings');
+                
+                // Hide ratings tab
+                const ratingsTabContent = document.querySelector('#ratingsTab');
+                if (ratingsTabContent) {
+                    ratingsTabContent.style.display = 'none';
+                    ratingsTabContent.classList.add('hide');
+                }
+                
+                // Show the home page
+                const homePage = document.querySelector('[data-role="page"].hide:not(#ratingsTab)');
+                if (homePage) {
+                    homePage.classList.remove('hide');
+                    console.log('[UserRatings] Restored home page');
+                }
+            }, true); // Use capture to run before Jellyfin's handler
+        });
+
+            // Insert the tab
+            tabsSlider.appendChild(ratingsTab);
+            console.log('[UserRatings] ✅ SUCCESS: Tab injected into home screen!');
+            console.log('[UserRatings] ===== INJECTION COMPLETE =====');
+            
+        } catch (error) {
+            console.error('[UserRatings] ❌ INJECTION ERROR:', error);
+            console.error('[UserRatings] Error stack:', error.stack);
+            console.log('[UserRatings] ===== INJECTION FAILED =====');
+        }
+    }
+
+    // Try to inject tab on page load and navigation
+    function checkAndInjectTab() {
+        injectRatingsTab();
+    }
+
+    console.log('[UserRatings] Starting tab injection attempts...');
+    
+    // Try immediately and repeatedly
+    injectRatingsTab();
+    setTimeout(injectRatingsTab, 100);
+    setTimeout(injectRatingsTab, 500);
+    setTimeout(injectRatingsTab, 1000);
+    setTimeout(injectRatingsTab, 2000);
+    setTimeout(injectRatingsTab, 3000);
+    setInterval(injectRatingsTab, 2000);
+
+    // Watch for page changes
+    window.addEventListener('hashchange', () => {
+        setTimeout(injectRatingsTab, 100);
+        setTimeout(injectRatingsTab, 500);
+    });
+
+    // Watch for DOM changes to inject tab
+    new MutationObserver(() => {
+        injectRatingsTab();
+    }).observe(document.body, {
+        subtree: true,
+        childList: true
+    });
+
+    console.log('[UserRatings] Plugin initialized with inline interface and navigation');
 })();
