@@ -262,6 +262,13 @@
                     'X-Emby-Token': ApiClient.accessToken()
                 }
             });
+            
+            if (!response.ok) {
+                const text = await response.text();
+                console.error('[UserRatings] Server error:', response.status, text);
+                return { success: false, message: `Server error: ${response.status}` };
+            }
+            
             return await response.json();
         } catch (error) {
             console.error('[UserRatings] Error saving rating:', error);
