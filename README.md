@@ -23,7 +23,7 @@ A social rating system for Jellyfin that lets users rate movies, TV shows, and m
 1. Open **Jellyfin Dashboard** → **Plugins** → **Repositories**
 2. Add repository URL:
    ```
-   https://raw.githubusercontent.com/aG00Dtime/Jellyfin.Plugin.UserRatings/main/manifest.json
+   https://raw.githubusercontent.com/aG00Dtime/Jellyfin.Plugin.UserRating/refs/tags/v1.0.0/manifest.json
    ```
 3. Go to **Catalog**, find **User Ratings**, and install
 4. Restart Jellyfin
