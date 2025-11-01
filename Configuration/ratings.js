@@ -811,7 +811,7 @@
                 const details = item.details;
                 const imageUrl = ApiClient.getImageUrl(item.itemId, {
                     type: 'Primary',
-                    maxHeight: 400,
+                    maxHeight: 500,
                     quality: 90
                 });
 
@@ -889,12 +889,107 @@
             
             sectionsHTML += '</div>';
             
+            // Add "All Rated Items" section with pagination and sorting
+            let currentPage = 1;
+            const itemsPerPage = 24;
+            let currentSort = 'rating-desc';
+            let allItems = [...itemsWithDetails];
+            
+            const renderAllItemsSection = (page, sortBy) => {
+                // Sort items
+                switch(sortBy) {
+                    case 'rating-desc':
+                        allItems.sort((a, b) => b.averageRating - a.averageRating);
+                        break;
+                    case 'rating-asc':
+                        allItems.sort((a, b) => a.averageRating - b.averageRating);
+                        break;
+                    case 'recent':
+                        allItems.sort((a, b) => (b.lastRatedTimestamp || 0) - (a.lastRatedTimestamp || 0));
+                        break;
+                    case 'title':
+                        allItems.sort((a, b) => (a.details.Name || '').localeCompare(b.details.Name || ''));
+                        break;
+                }
+                
+                // Pagination
+                const startIndex = (page - 1) * itemsPerPage;
+                const endIndex = startIndex + itemsPerPage;
+                const paginatedItems = allItems.slice(startIndex, endIndex);
+                const totalPages = Math.ceil(allItems.length / itemsPerPage);
+                
+                const allItemsSection = document.querySelector('#allItemsSection');
+                if (!allItemsSection) return;
+                
+                allItemsSection.innerHTML = `
+                    <div class="verticalSection">
+                        <div class="sectionTitleContainer sectionTitleContainer-cards padded-left" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1em;">
+                            <h2 class="sectionTitle sectionTitle-cards">All Rated Items (${allItems.length})</h2>
+                            <div style="display: flex; gap: 1em; align-items: center;">
+                                <label style="color: rgba(255,255,255,0.7); font-size: 0.9em;">Sort by:</label>
+                                <select id="sortSelect" style="background: rgba(0,0,0,0.3); color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 0.5em 1em; font-size: 0.9em;">
+                                    <option value="rating-desc" ${sortBy === 'rating-desc' ? 'selected' : ''}>Highest Rated</option>
+                                    <option value="rating-asc" ${sortBy === 'rating-asc' ? 'selected' : ''}>Lowest Rated</option>
+                                    <option value="recent" ${sortBy === 'recent' ? 'selected' : ''}>Recently Rated</option>
+                                    <option value="title" ${sortBy === 'title' ? 'selected' : ''}>Title (A-Z)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div is="emby-itemscontainer" class="itemsContainer vertical-wrap padded-left padded-right">
+                            ${buildCategoryGrid(paginatedItems)}
+                        </div>
+                        <div class="padded-left padded-right" style="display: flex; justify-content: center; align-items: center; gap: 1em; padding: 2em; flex-wrap: wrap;">
+                            <button id="prevPage" class="emby-button emby-button-backdropfilter" ${page === 1 ? 'disabled' : ''} style="padding: 0.6em 1.5em;">
+                                <span class="material-icons" style="vertical-align: middle;">chevron_left</span> Previous
+                            </button>
+                            <span style="color: rgba(255,255,255,0.8);">Page ${page} of ${totalPages}</span>
+                            <button id="nextPage" class="emby-button emby-button-backdropfilter" ${page === totalPages ? 'disabled' : ''} style="padding: 0.6em 1.5em;">
+                                Next <span class="material-icons" style="vertical-align: middle;">chevron_right</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Add event listeners
+                const sortSelect = document.querySelector('#sortSelect');
+                if (sortSelect) {
+                    sortSelect.addEventListener('change', (e) => {
+                        currentSort = e.target.value;
+                        currentPage = 1;
+                        renderAllItemsSection(currentPage, currentSort);
+                    });
+                }
+                
+                const prevBtn = document.querySelector('#prevPage');
+                if (prevBtn && !prevBtn.disabled) {
+                    prevBtn.addEventListener('click', () => {
+                        currentPage--;
+                        renderAllItemsSection(currentPage, currentSort);
+                        allItemsSection.scrollIntoView({ behavior: 'smooth' });
+                    });
+                }
+                
+                const nextBtn = document.querySelector('#nextPage');
+                if (nextBtn && !nextBtn.disabled) {
+                    nextBtn.addEventListener('click', () => {
+                        currentPage++;
+                        renderAllItemsSection(currentPage, currentSort);
+                        allItemsSection.scrollIntoView({ behavior: 'smooth' });
+                    });
+                }
+            };
+            
+            sectionsHTML += '<div id="allItemsSection"></div></div>';
+            
             console.log('[UserRatings] Sections HTML length:', sectionsHTML.length);
             console.log('[UserRatings] First 500 chars:', sectionsHTML.substring(0, 500));
             
             // Display the categorized grid
             ratingsTabContent.innerHTML = sectionsHTML;
             ratingsTabContent.style.pointerEvents = 'auto'; // Ensure clicks work
+            
+            // Render the "All Items" section
+            renderAllItemsSection(currentPage, currentSort);
             
             // Add click handlers to cards
             ratingsTabContent.querySelectorAll('.card[data-item-id]').forEach(card => {
