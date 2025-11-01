@@ -1,46 +1,50 @@
 using System;
 using System.Linq;
 using System.Net.Mime;
+using System.Threading.Tasks;
 using Jellyfin.Plugin.UserRatings.Data;
 using Jellyfin.Plugin.UserRatings.Models;
-using Jellyfin.Extensions;
 using MediaBrowser.Common.Configuration;
-using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
-using Microsoft.AspNetCore.Authorization;
+using MediaBrowser.Model.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Jellyfin.Plugin.UserRatings.Api
 {
     [ApiController]
     [Route("api/UserRatings")]
-    [Authorize(Policy = "DefaultAuthorization")]
     public class RatingsController : ControllerBase
     {
         private readonly RatingRepository _repository;
         private readonly IUserManager _userManager;
         private readonly ILibraryManager _libraryManager;
+        private readonly IAuthorizationContext _authContext;
 
-        public RatingsController(IApplicationPaths appPaths, IUserManager userManager, ILibraryManager libraryManager)
+        public RatingsController(
+            IApplicationPaths appPaths, 
+            IUserManager userManager, 
+            ILibraryManager libraryManager,
+            IAuthorizationContext authContext)
         {
             _repository = new RatingRepository(appPaths);
             _userManager = userManager;
             _libraryManager = libraryManager;
+            _authContext = authContext;
         }
 
-        private Guid GetUserId()
+        private async Task<Guid> GetUserIdAsync()
         {
-            var userIdClaim = User.Claims.FirstOrDefault(c => c.Type == "userId");
-            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+            var auth = await _authContext.GetAuthorizationInfo(Request);
+            if (auth.UserId == Guid.Empty)
             {
-                return userId;
+                throw new UnauthorizedAccessException("User ID not found");
             }
-            throw new UnauthorizedAccessException("User ID not found in claims");
+            return auth.UserId;
         }
 
         [HttpPost("Rate")]
         [Produces(MediaTypeNames.Application.Json)]
-        public ActionResult RateItem([FromQuery] Guid itemId, [FromQuery] int rating, [FromQuery] string? note)
+        public async Task<ActionResult> RateItem([FromQuery] Guid itemId, [FromQuery] int rating, [FromQuery] string? note)
         {
             try
             {
@@ -49,7 +53,7 @@ namespace Jellyfin.Plugin.UserRatings.Api
                     return BadRequest(new { success = false, message = "Rating must be between 1 and 5" });
                 }
 
-                var userId = GetUserId();
+                var userId = await GetUserIdAsync();
                 var user = _userManager.GetUserById(userId);
 
                 var userRating = new UserRating
@@ -130,11 +134,11 @@ namespace Jellyfin.Plugin.UserRatings.Api
 
         [HttpDelete("Rating")]
         [Produces(MediaTypeNames.Application.Json)]
-        public ActionResult DeleteRating([FromQuery] Guid itemId)
+        public async Task<ActionResult> DeleteRating([FromQuery] Guid itemId)
         {
             try
             {
-                var userId = GetUserId();
+                var userId = await GetUserIdAsync();
                 _repository.DeleteRating(itemId, userId);
 
                 return Ok(new { success = true, message = "Rating deleted successfully" });
@@ -147,11 +151,11 @@ namespace Jellyfin.Plugin.UserRatings.Api
 
         [HttpGet("MyRating/{itemId}")]
         [Produces(MediaTypeNames.Application.Json)]
-        public ActionResult GetMyRating(Guid itemId)
+        public async Task<ActionResult> GetMyRating(Guid itemId)
         {
             try
             {
-                var userId = GetUserId();
+                var userId = await GetUserIdAsync();
                 var rating = _repository.GetRating(itemId, userId);
 
                 if (rating == null)
