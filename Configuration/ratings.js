@@ -994,23 +994,14 @@
                 console.log('[UserRatings] On home page but ratings content missing - recreating it');
                 
                 // Recreate the content element so it's ready when user clicks the tab
-                const favoritesTab = document.querySelector('#favoritesTab');
-                const existingTabContent = document.querySelector('.tabContent.pageTabContent');
-                let insertLocation = null;
+                // Must be in #indexPage (home page container) and in correct DOM order
+                const homePage = document.querySelector('#indexPage') || 
+                               document.querySelector('[data-role="page"].homePage');
                 
-                if (favoritesTab && favoritesTab.parentNode) {
-                    insertLocation = favoritesTab.parentNode;
-                } else if (existingTabContent && existingTabContent.parentNode) {
-                    insertLocation = existingTabContent.parentNode;
-                } else {
-                    const homePage = document.querySelector('[data-role="page"]');
-                    if (homePage && homePage.parentNode) {
-                        insertLocation = homePage.parentNode;
-                    }
-                }
-                
-                if (insertLocation) {
+                if (homePage) {
+                    const favoritesTab = homePage.querySelector('#favoritesTab');
                     const tabIndex = ratingsTabBtn.getAttribute('data-index');
+                    
                     const newContent = document.createElement('div');
                     newContent.id = 'ratingsTab';
                     newContent.className = 'tabContent pageTabContent';
@@ -1019,17 +1010,16 @@
                     }
                     newContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
                     
+                    // Insert after favoritesTab to maintain correct DOM order
                     if (favoritesTab && favoritesTab.nextSibling) {
-                        insertLocation.insertBefore(newContent, favoritesTab.nextSibling);
+                        homePage.insertBefore(newContent, favoritesTab.nextSibling);
                     } else if (favoritesTab) {
-                        insertLocation.appendChild(newContent);
-                    } else if (existingTabContent && existingTabContent.nextSibling) {
-                        insertLocation.insertBefore(newContent, existingTabContent.nextSibling);
+                        homePage.appendChild(newContent);
                     } else {
-                        insertLocation.appendChild(newContent);
+                        homePage.appendChild(newContent);
                     }
                     
-                    console.log('[UserRatings] Recreated ratings tab content on home navigation');
+                    console.log('[UserRatings] Recreated ratings tab content on home navigation with data-index:', tabIndex);
                 }
             }
             
@@ -1485,8 +1475,22 @@
             
             // Check if tab already exists
             const existingTab = document.querySelector('[data-ratings-tab="true"]');
-            if (existingTab) {
+            const existingContent = document.querySelector('#ratingsTab');
+            
+            // If both tab and content exist, we're done
+            if (existingTab && existingContent) {
+                // Just ensure data-index matches
+                const tabIndex = existingTab.getAttribute('data-index');
+                if (tabIndex && existingContent.getAttribute('data-index') !== tabIndex) {
+                    existingContent.setAttribute('data-index', tabIndex);
+                }
                 return;
+            }
+            
+            // If tab exists but content doesn't, recreate content
+            if (existingTab && !existingContent) {
+                console.log('[UserRatings] Tab exists but content missing - recreating');
+                // Will be created below
             }
 
             // Try to find the tabs container by locating the Home button first
@@ -1511,44 +1515,53 @@
         const existingTabs = tabsSlider.querySelectorAll('.emby-tab-button');
         const nextIndex = existingTabs.length;
 
-        // IMPORTANT: Create the content container FIRST, before the tab button
+        // CRITICAL: Create the content container FIRST, before the tab button
         // This prevents Jellyfin from trying to load a module when it processes the tab
+        // The content MUST be in the DOM when getTabContainers() is called (which returns querySelectorAll('.tabContent'))
+        // The array index MUST match the data-index attribute
+        // IMPORTANT: The content must be inserted in the correct order - after favoritesTab (index 1), so it gets index 2
         let ratingsTabContent = document.querySelector('#ratingsTab');
         if (!ratingsTabContent) {
-            const favoritesTab = document.querySelector('#favoritesTab');
-            const existingTabContent = document.querySelector('.tabContent.pageTabContent');
+            // Find the home page container (where all tab content lives)
+            const homePage = document.querySelector('#indexPage') || 
+                           document.querySelector('[data-role="page"].homePage') ||
+                           document.querySelector('[data-role="page"]');
             
-            let insertLocation = null;
-            if (favoritesTab && favoritesTab.parentNode) {
-                insertLocation = favoritesTab.parentNode;
-            } else if (existingTabContent && existingTabContent.parentNode) {
-                insertLocation = existingTabContent.parentNode;
-            } else {
-                const homePage = document.querySelector('[data-role="page"]');
-                if (homePage && homePage.parentNode) {
-                    insertLocation = homePage.parentNode;
-                }
+            if (!homePage) {
+                console.error('[UserRatings] Could not find home page container');
+                return;
             }
             
-            if (insertLocation) {
-                ratingsTabContent = document.createElement('div');
-                ratingsTabContent.id = 'ratingsTab';
-                // Use tabContent pageTabContent classes, but NOT hide - use is-active instead
-                // Jellyfin's CSS rule: .tabContent:not(.is-active) { display: none; }
-                ratingsTabContent.className = 'tabContent pageTabContent';
+            // Find favoritesTab to insert after it
+            const favoritesTab = homePage.querySelector('#favoritesTab');
+            
+            ratingsTabContent = document.createElement('div');
+            ratingsTabContent.id = 'ratingsTab';
+            // Use tabContent pageTabContent classes, but NOT hide - use is-active instead
+            // Jellyfin's CSS rule: .tabContent:not(.is-active) { display: none; }
+            ratingsTabContent.className = 'tabContent pageTabContent';
+            ratingsTabContent.setAttribute('data-index', nextIndex);
+            // Don't set inline styles - let Jellyfin handle styling to match other tabs
+            ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
+            
+            // Insert after favoritesTab to maintain correct order
+            // querySelectorAll('.tabContent') returns elements in DOM order, so index 2 must be after index 1
+            if (favoritesTab && favoritesTab.nextSibling) {
+                homePage.insertBefore(ratingsTabContent, favoritesTab.nextSibling);
+            } else if (favoritesTab) {
+                homePage.appendChild(ratingsTabContent);
+            } else {
+                // If favoritesTab doesn't exist yet, append to end
+                homePage.appendChild(ratingsTabContent);
+            }
+            
+            console.log('[UserRatings] Created ratings tab content with data-index:', nextIndex);
+        } else {
+            // Content exists - ensure data-index matches
+            const currentIndex = ratingsTabContent.getAttribute('data-index');
+            if (currentIndex !== String(nextIndex)) {
                 ratingsTabContent.setAttribute('data-index', nextIndex);
-                // Don't set inline styles - let Jellyfin handle styling to match other tabs
-                ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
-                
-                if (favoritesTab && favoritesTab.nextSibling) {
-                    insertLocation.insertBefore(ratingsTabContent, favoritesTab.nextSibling);
-                } else if (favoritesTab) {
-                    insertLocation.appendChild(ratingsTabContent);
-                } else if (existingTabContent && existingTabContent.nextSibling) {
-                    insertLocation.insertBefore(ratingsTabContent, existingTabContent.nextSibling);
-                } else {
-                    insertLocation.appendChild(ratingsTabContent);
-                }
+                console.log('[UserRatings] Updated ratings tab content data-index from', currentIndex, 'to', nextIndex);
             }
         }
 
