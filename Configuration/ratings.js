@@ -987,21 +987,71 @@
     function handleHistoryChange() {
         const currentHash = window.location.hash;
         const ratingsTabContent = document.querySelector('#ratingsTab');
+        const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
         
-        // If navigating away from home and ratings tab is visible, hide it
-        if (ratingsTabContent && !currentHash.includes('#/home')) {
-            ratingsTabContent.style.display = 'none';
-            ratingsTabContent.classList.add('hide');
-            ratingsTabContent.style.pointerEvents = 'none';
-            
-            const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
+        // Check if we're navigating to details page
+        if (currentHash.includes('#/details') || currentHash.includes('/details')) {
+            // Store that we're coming from ratings tab if it's currently active
+            if (ratingsTabBtn && ratingsTabBtn.classList.contains('emby-tab-button-active')) {
+                try {
+                    const currentState = history.state || {};
+                    history.replaceState({ ...currentState, fromRatingsTab: true }, '', window.location.href);
+                    console.log('[UserRatings] Navigating to details from ratings tab, storing state');
+                } catch (e) {
+                    console.log('[UserRatings] Could not store history state:', e);
+                }
+            }
+            // Hide ratings tab when going to details
+            if (ratingsTabContent) {
+                ratingsTabContent.style.display = 'none';
+                ratingsTabContent.classList.add('hide');
+                ratingsTabContent.style.pointerEvents = 'none';
+            }
+        }
+        // Check if we're navigating back to home
+        else if (currentHash.includes('#/home') || currentHash === '#/home.html' || currentHash === '' || currentHash === '#') {
+            // Check history state to see if we came from ratings tab
+            try {
+                const state = history.state || {};
+                if (state.fromRatingsTab) {
+                    console.log('[UserRatings] Navigating back from details, restoring ratings tab');
+                    // Restore ratings tab
+                    if (ratingsTabBtn) {
+                        ratingsTabBtn.classList.add('emby-tab-button-active');
+                    }
+                    if (ratingsTabContent) {
+                        // Check if content needs to be reloaded
+                        const hasContent = ratingsTabContent.innerHTML.trim().length > 0 && 
+                                         !ratingsTabContent.innerHTML.includes('Loading ratings');
+                        if (!hasContent) {
+                            setTimeout(() => displayRatingsList(), 100);
+                        } else {
+                            ratingsTabContent.classList.remove('hide');
+                            ratingsTabContent.style.display = '';
+                            ratingsTabContent.style.pointerEvents = 'auto';
+                        }
+                    }
+                    // Clear the flag
+                    history.replaceState({ ...state, fromRatingsTab: false }, '', window.location.href);
+                }
+            } catch (e) {
+                console.log('[UserRatings] Could not check history state:', e);
+            }
+        }
+        // Navigating away from home
+        else if (!currentHash.includes('#/home')) {
+            if (ratingsTabContent) {
+                ratingsTabContent.style.display = 'none';
+                ratingsTabContent.classList.add('hide');
+                ratingsTabContent.style.pointerEvents = 'none';
+            }
             if (ratingsTabBtn) {
                 ratingsTabBtn.classList.remove('emby-tab-button-active');
             }
         }
     }
     
-    // Also check on hash change
+    // Also check on hash change (back/forward button navigation)
     window.addEventListener('hashchange', () => {
         // Remove old UI on hash change
         const oldUI = document.getElementById('user-ratings-ui');
@@ -1009,24 +1059,72 @@
             oldUI.remove();
         }
         
-        // Manage page visibility
-        const ratingsTab = document.querySelector('#ratingsTab');
         const currentHash = window.location.hash;
+        const ratingsTab = document.querySelector('#ratingsTab');
+        const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
         
-        if (ratingsTab) {
-            if (!currentHash.includes('home')) {
-                // Navigating away from home - hide ratings page
-                console.log('[UserRatings] Navigating away from home - hiding ratings page');
-                ratingsTab.style.display = 'none';
-                ratingsTab.classList.add('hide');
-            } else if (currentHash.includes('home')) {
-                // Navigating back to home - ensure ratings page is hidden
-                console.log('[UserRatings] Navigating to home - ensuring clean state');
-                ratingsTab.style.display = 'none';
-                ratingsTab.classList.add('hide');
-                
-                // Don't hide other pages - let Jellyfin handle page visibility
-                // This was causing issues with favorites and other pages
+        // Check if navigating back to home
+        if (currentHash.includes('#/home') || currentHash === '#/home.html' || currentHash === '' || currentHash === '#') {
+            // Check history state to see if we came from ratings tab
+            try {
+                const state = history.state || {};
+                if (state.fromRatingsTab) {
+                    console.log('[UserRatings] Back button: Restoring ratings tab from history state');
+                    // Restore ratings tab
+                    if (ratingsTabBtn) {
+                        ratingsTabBtn.classList.add('emby-tab-button-active');
+                        // Remove active from other tabs
+                        document.querySelectorAll('.emby-tab-button').forEach(tab => {
+                            if (tab !== ratingsTabBtn) {
+                                tab.classList.remove('emby-tab-button-active');
+                            }
+                        });
+                    }
+                    if (ratingsTab) {
+                        // Reload content and show
+                        setTimeout(() => {
+                            displayRatingsList();
+                        }, 150);
+                    }
+                    // Clear the flag
+                    history.replaceState({ ...state, fromRatingsTab: false }, '', window.location.href);
+                } else {
+                    // Not from ratings tab - ensure other pages are visible and loaded
+                    // Hide ratings tab if it's showing
+                    if (ratingsTab) {
+                        ratingsTab.style.display = 'none';
+                        ratingsTab.classList.add('hide');
+                        ratingsTab.style.pointerEvents = 'none';
+                    }
+                    if (ratingsTabBtn) {
+                        ratingsTabBtn.classList.remove('emby-tab-button-active');
+                    }
+                    // Check if home page is blank and needs reload
+                    setTimeout(() => {
+                        const homePages = document.querySelectorAll('[data-role="page"]');
+                        let hasVisibleContent = false;
+                        homePages.forEach(page => {
+                            if (!page.classList.contains('hide') && page.style.display !== 'none' && page.id !== 'ratingsTab') {
+                                const rect = page.getBoundingClientRect();
+                                if (rect.width > 0 && rect.height > 0) {
+                                    hasVisibleContent = true;
+                                }
+                            }
+                        });
+                        // If no visible content and we're on home, trigger a soft reload
+                        if (!hasVisibleContent && (currentHash.includes('#/home') || currentHash === '' || currentHash === '#')) {
+                            console.log('[UserRatings] Home page appears blank, triggering reload');
+                            // Trigger hash change to reload page
+                            const currentHashState = window.location.hash;
+                            window.location.hash = currentHashState + (currentHashState.includes('?') ? '&' : '?') + '_t=' + Date.now();
+                            setTimeout(() => {
+                                window.location.hash = currentHashState;
+                            }, 50);
+                        }
+                    }, 300);
+                }
+            } catch (e) {
+                console.log('[UserRatings] Could not restore from history state:', e);
             }
         }
         
@@ -1040,7 +1138,7 @@
         isNavigating = false;
         lastNavigationTime = 0;
         
-        // Try injection with multiple attempts
+        // Try injection with multiple attempts (for details pages)
         setTimeout(injectRatingsUI, 100);
         setTimeout(injectRatingsUI, 300);
     });
