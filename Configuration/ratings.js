@@ -1099,76 +1099,68 @@
         let ratingsTabContent = document.querySelector('#ratingsTab');
         
             if (!ratingsTabContent) {
-                // Find the home page - this is the main page container
-                const homePage = document.querySelector('[data-role="page"]:not(.hide)');
+                // Find where to insert the content - look for existing tabContent elements
+                // Custom tabs plugin injects content as siblings to favoritesTab
+                const favoritesTab = document.querySelector('#favoritesTab');
+                const existingTabContent = document.querySelector('.tabContent.pageTabContent');
                 
-                if (!homePage) {
-                    console.error('[UserRatings] Could not find home page');
+                let insertLocation = null;
+                if (favoritesTab && favoritesTab.parentNode) {
+                    // Insert after favoritesTab (like custom tabs plugin does)
+                    insertLocation = favoritesTab.parentNode;
+                } else if (existingTabContent && existingTabContent.parentNode) {
+                    // Or insert next to other tab content
+                    insertLocation = existingTabContent.parentNode;
+                } else {
+                    // Fallback: find home page
+                    const homePage = document.querySelector('[data-role="page"]');
+                    if (homePage && homePage.parentNode) {
+                        insertLocation = homePage.parentNode;
+                    }
+                }
+                
+                if (!insertLocation) {
+                    console.error('[UserRatings] Could not find location to insert ratings tab content');
                     return;
-                }
-                
-                // Try multiple selectors to find the content container
-                let scrollContainer = homePage.querySelector('.scrollY');
-                if (!scrollContainer) {
-                    scrollContainer = homePage.querySelector('.pageTabContent');
-                }
-                if (!scrollContainer) {
-                    scrollContainer = homePage.querySelector('.scrollContainer');
-                }
-                if (!scrollContainer) {
-                    // Just use the page itself as the container
-                    scrollContainer = homePage;
                 }
                 
                 ratingsTabContent = document.createElement('div');
                 ratingsTabContent.id = 'ratingsTab';
-                ratingsTabContent.className = 'page homePage libraryPage hide';
-                ratingsTabContent.setAttribute('data-role', 'page');
-                // Position like other Jellyfin pages - use absolute for proper layering
-                ratingsTabContent.style.position = 'absolute';
-                ratingsTabContent.style.top = '0';
-                ratingsTabContent.style.left = '0';
-                ratingsTabContent.style.right = '0';
-                ratingsTabContent.style.bottom = '0';
-                ratingsTabContent.style.overflow = 'auto';
-                ratingsTabContent.style.zIndex = '0'; // Same as other pages
+                // Use the same structure as custom tabs plugin - this allows Jellyfin to handle tab switching
+                ratingsTabContent.className = 'tabContent pageTabContent hide';
                 
-                // Add as sibling to home page
-                homePage.parentNode.appendChild(ratingsTabContent);
+                // Get the data-index from the tab button so they match
+                const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
+                if (ratingsTabBtn) {
+                    const tabIndex = ratingsTabBtn.getAttribute('data-index');
+                    if (tabIndex) {
+                        ratingsTabContent.setAttribute('data-index', tabIndex);
+                    }
+                }
+                
+                // Insert after favoritesTab if it exists, otherwise append
+                if (favoritesTab && favoritesTab.nextSibling) {
+                    insertLocation.insertBefore(ratingsTabContent, favoritesTab.nextSibling);
+                } else if (favoritesTab) {
+                    insertLocation.appendChild(ratingsTabContent);
+                } else if (existingTabContent && existingTabContent.nextSibling) {
+                    insertLocation.insertBefore(ratingsTabContent, existingTabContent.nextSibling);
+                } else {
+                    insertLocation.appendChild(ratingsTabContent);
+                }
             }
         
-        // Store the last active page ID in history state before switching to ratings
-        const activePages = Array.from(document.querySelectorAll('[data-role="page"]')).filter(page => {
-            return !page.classList.contains('hide') && page.style.display !== 'none' && page.id !== 'ratingsTab';
-        });
-        if (activePages.length > 0) {
-            lastActivePage = activePages[0];
-            const pageId = lastActivePage.id || lastActivePage.getAttribute('data-index') || null;
-            // Store in history state so we can restore it
-            try {
-                const currentState = history.state || {};
-                history.replaceState({ ...currentState, lastActivePageId: pageId }, '', window.location.href);
-                console.log('[UserRatings] Storing last active page in history state:', pageId);
-            } catch (e) {
-                console.log('[UserRatings] Could not store page in history state:', e);
+        // Ensure data-index matches between button and content for Jellyfin's tab switching
+        const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
+        if (ratingsTabBtn && ratingsTabContent) {
+            const tabIndex = ratingsTabBtn.getAttribute('data-index');
+            if (tabIndex) {
+                ratingsTabContent.setAttribute('data-index', tabIndex);
             }
         }
         
-        // Hide all other pages and show ratings tab
-        // Use the same approach as Jellyfin's native tab switching
-        const allPages = document.querySelectorAll('[data-role="page"]');
-        allPages.forEach(page => {
-            if (page.id === 'ratingsTab') {
-                // Show ratings tab
-                page.classList.remove('hide');
-                page.style.display = '';
-                page.style.pointerEvents = 'auto';
-            } else {
-                // Hide all other pages
-                page.classList.add('hide');
-                page.style.display = 'none';
-            }
-        });
+        // Don't manually manage visibility - Jellyfin will show/hide based on active tab button
+        // The hide class will be managed by Jellyfin's tab switching system
 
         // Show loading
         ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
@@ -1533,80 +1525,28 @@
         ratingsTab.setAttribute('data-ratings-tab', 'true');
         ratingsTab.innerHTML = '<div class="emby-button-foreground">User Ratings</div>';
 
-        // Add click handler
+        // Add click handler - don't preventDefault, let Jellyfin handle tab switching
         ratingsTab.addEventListener('click', async function(e) {
-            e.preventDefault();
-            
-            // Remove active class from all tabs
-            tabsSlider.querySelectorAll('.emby-tab-button').forEach(tab => {
-                tab.classList.remove('emby-tab-button-active');
-            });
-            
-            // Add active class to this tab
-            ratingsTab.classList.add('emby-tab-button-active');
-            
-            try {
-                // Load and display ratings list in the home page
-                await displayRatingsList();
-            } catch (error) {
-                console.error('[UserRatings] Error in displayRatingsList:', error);
-            }
+            // Let Jellyfin handle the tab switching naturally
+            // Just ensure content is loaded when this tab becomes active
+            setTimeout(async () => {
+                const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
+                if (ratingsTabBtn && ratingsTabBtn.classList.contains('emby-tab-button-active')) {
+                    const ratingsTabContent = document.querySelector('#ratingsTab');
+                    // Only load if content is empty or just has loading message
+                    if (ratingsTabContent && (!ratingsTabContent.innerHTML.trim() || ratingsTabContent.innerHTML.includes('Loading ratings'))) {
+                        try {
+                            await displayRatingsList();
+                        } catch (error) {
+                            console.error('[UserRatings] Error in displayRatingsList:', error);
+                        }
+                    }
+                }
+            }, 100);
         });
 
-        // Add listeners to other tabs to properly switch content
-        // Use a flag to track if we've added listeners to avoid duplicates
-        if (!tabsSlider.hasAttribute('data-ratings-listeners-added')) {
-            tabsSlider.setAttribute('data-ratings-listeners-added', 'true');
-            
-            const otherTabs = tabsSlider.querySelectorAll('.emby-tab-button:not([data-ratings-tab="true"])');
-            otherTabs.forEach((tab, index) => {
-            tab.addEventListener('click', function(e) {
-                // Hide ratings tab completely - do this immediately
-                const ratingsTabContent = document.querySelector('#ratingsTab');
-                if (ratingsTabContent) {
-                    ratingsTabContent.style.display = 'none';
-                    ratingsTabContent.classList.add('hide');
-                    ratingsTabContent.style.pointerEvents = 'none';
-                }
-                
-                // Remove active class from ratings tab button
-                const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
-                if (ratingsTabBtn) {
-                    ratingsTabBtn.classList.remove('emby-tab-button-active');
-                }
-                
-                // Try to restore the last active page from history state
-                setTimeout(() => {
-                    try {
-                        const state = history.state || {};
-                        const lastPageId = state.lastActivePageId;
-                        
-                        if (lastPageId) {
-                            // Try to find and show the page by ID or data-index
-                            let pageToRestore = document.getElementById(lastPageId);
-                            if (!pageToRestore) {
-                                pageToRestore = Array.from(document.querySelectorAll('[data-role="page"]')).find(p => 
-                                    p.getAttribute('data-index') === lastPageId
-                                );
-                            }
-                            
-                            if (pageToRestore && pageToRestore !== ratingsTabContent) {
-                                console.log('[UserRatings] Restoring page from history state:', lastPageId);
-                                pageToRestore.classList.remove('hide');
-                                pageToRestore.style.display = '';
-                                // Clear the stored state after use
-                                history.replaceState({ ...state, lastActivePageId: null }, '', window.location.href);
-                            }
-                        }
-                    } catch (e) {
-                        console.log('[UserRatings] Could not restore page from history state:', e);
-                    }
-                    
-                    // Fallback: Let Jellyfin handle it if we couldn't restore
-                }, 100);
-            }, true); // Use capture to run before Jellyfin's handler
-            });
-        }
+        // Don't add listeners to other tabs - let Jellyfin handle all tab switching
+        // Jellyfin will automatically show/hide content based on matching data-index attributes
 
             // Insert the tab
             tabsSlider.appendChild(ratingsTab);
