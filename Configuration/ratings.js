@@ -1583,15 +1583,16 @@
 
         // Add click handler - manually handle tab switching to prevent module loading error
         ratingsTab.addEventListener('click', async function(e) {
-            // Only handle if this is the ratings tab
-            if (!ratingsTab.hasAttribute('data-ratings-tab')) {
-                return; // Not our tab, let Jellyfin handle it
+            // Only handle if this is the ratings tab being clicked
+            const clickedTab = e.target.closest('.emby-tab-button');
+            if (!clickedTab || clickedTab !== ratingsTab || !ratingsTab.hasAttribute('data-ratings-tab')) {
+                return; // Not our tab, let Jellyfin handle it normally
             }
             
             // Prevent default and stop propagation to prevent Jellyfin from trying to load a module
             e.preventDefault();
             e.stopPropagation();
-            e.stopImmediatePropagation();
+            // Don't use stopImmediatePropagation in capture phase - it breaks other tabs
             
             console.log('[UserRatings] Ratings tab clicked');
             
@@ -1619,8 +1620,13 @@
             // Add active to this tab
             ratingsTab.classList.add('emby-tab-button-active');
             
-            // Don't manually hide other tabs - let Jellyfin handle tab switching naturally
-            // We'll just show our tab, Jellyfin will hide others automatically
+            // Hide other tab content like Jellyfin does
+            const allTabContent = document.querySelectorAll('.tabContent.pageTabContent');
+            allTabContent.forEach(tabContent => {
+                if (tabContent.id !== 'ratingsTab') {
+                    tabContent.classList.add('hide');
+                }
+            });
             
             // Always load/refresh content first
             try {
@@ -1633,49 +1639,33 @@
             
             // Now show ratings tab content - ensure it's fully visible
             ratingsTabContent.classList.remove('hide');
-            // Remove inline styles that might interfere - let Jellyfin handle styling
-            ratingsTabContent.style.display = '';
-            ratingsTabContent.style.visibility = '';
-            ratingsTabContent.style.opacity = '';
-            ratingsTabContent.style.position = '';
-            ratingsTabContent.style.width = '';
-            ratingsTabContent.style.height = '';
-            ratingsTabContent.style.minHeight = '';
             
-            // Ensure parent containers are visible and have proper sizing
-            let parent = ratingsTabContent.parentElement;
-            let parentDepth = 0;
-            while (parent && parent !== document.body && parentDepth < 10) {
-                // Check if parent needs to be visible
-                if (parent.classList && parent.classList.contains('hide')) {
-                    parent.classList.remove('hide');
-                }
-                if (parent.style && parent.style.display === 'none') {
-                    parent.style.display = '';
-                }
-                // Ensure parent has dimensions
-                const parentRect = parent.getBoundingClientRect();
-                if (parentRect.width === 0 || parentRect.height === 0) {
-                    // Force parent to have dimensions if it's a container
-                    if (parent.classList && (parent.classList.contains('page') || parent.classList.contains('content-primary') || parent.classList.contains('mainAnimatedPage'))) {
-                        parent.style.minHeight = '100%';
-                        parent.style.display = 'block';
-                    }
-                }
-                parent = parent.parentElement;
-                parentDepth++;
-            }
-            
-            console.log('[UserRatings] Showing ratings tab content, innerHTML length:', ratingsTabContent.innerHTML.length);
-            console.log('[UserRatings] Content classes:', ratingsTabContent.className);
-            console.log('[UserRatings] Content parent:', ratingsTabContent.parentElement?.tagName, ratingsTabContent.parentElement?.className);
+            // Check computed styles to see what's hiding it
             const computed = window.getComputedStyle(ratingsTabContent);
+            console.log('[UserRatings] Showing ratings tab content');
+            console.log('[UserRatings] Content classes:', ratingsTabContent.className);
             console.log('[UserRatings] Content computed display:', computed.display);
             console.log('[UserRatings] Content computed visibility:', computed.visibility);
             console.log('[UserRatings] Content computed opacity:', computed.opacity);
+            console.log('[UserRatings] Content computed width:', computed.width);
+            console.log('[UserRatings] Content computed height:', computed.height);
             console.log('[UserRatings] Content rect:', ratingsTabContent.getBoundingClientRect());
-            console.log('[UserRatings] Parent rect:', ratingsTabContent.parentElement?.getBoundingClientRect());
-        }, true); // Use capture phase to run before Jellyfin's handlers
+            
+            // If still has zero dimensions, try to match structure of other tabs
+            const otherTab = document.querySelector('.tabContent.pageTabContent:not(#ratingsTab)');
+            if (otherTab && ratingsTabContent.getBoundingClientRect().width === 0) {
+                console.log('[UserRatings] Content has zero width, checking other tab structure');
+                const otherComputed = window.getComputedStyle(otherTab);
+                console.log('[UserRatings] Other tab computed display:', otherComputed.display);
+                console.log('[UserRatings] Other tab computed width:', otherComputed.width);
+                console.log('[UserRatings] Other tab computed height:', otherComputed.height);
+                // Copy display style if it's different
+                if (computed.display !== otherComputed.display) {
+                    ratingsTabContent.style.display = otherComputed.display;
+                    console.log('[UserRatings] Set display to match other tabs:', otherComputed.display);
+                }
+            }
+        }, false); // Use bubble phase instead of capture to avoid breaking other tabs
         
         // Also watch for when the tab content becomes visible (hide class removed)
         // This handles cases where Jellyfin shows the tab without a click
