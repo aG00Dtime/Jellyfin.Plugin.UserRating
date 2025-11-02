@@ -228,6 +228,7 @@
     let isNavigating = false; // Flag to prevent refresh during navigation
     let lastNavigationTime = 0; // Track when navigation occurred
     let lastActivePage = null; // Track the last active page before switching to ratings
+    let lastActivePageId = null; // Store page ID for restoration (avoid history manipulation)
 
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
@@ -970,86 +971,11 @@
     setTimeout(injectRatingsUI, 300);
     setTimeout(injectRatingsUI, 600);
     
-    // Monkey-patch history API to track navigation (like custom tabs plugin)
-    const originalPushState = history.pushState;
-    const originalReplaceState = history.replaceState;
+    // Don't monkey-patch history API - it interferes with Jellyfin's navigation
+    // Let hashchange handle all navigation logic instead
     
-    history.pushState = function() {
-        originalPushState.apply(history, arguments);
-        handleHistoryChange();
-    };
-    
-    history.replaceState = function() {
-        originalReplaceState.apply(history, arguments);
-        handleHistoryChange();
-    };
-    
-    function handleHistoryChange() {
-        const currentHash = window.location.hash;
-        const ratingsTabContent = document.querySelector('#ratingsTab');
-        const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
-        
-        // Check if we're navigating to details page
-        if (currentHash.includes('#/details') || currentHash.includes('/details')) {
-            // Store that we're coming from ratings tab if it's currently active
-            if (ratingsTabBtn && ratingsTabBtn.classList.contains('emby-tab-button-active')) {
-                try {
-                    const currentState = history.state || {};
-                    history.replaceState({ ...currentState, fromRatingsTab: true }, '', window.location.href);
-                    console.log('[UserRatings] Navigating to details from ratings tab, storing state');
-                } catch (e) {
-                    console.log('[UserRatings] Could not store history state:', e);
-                }
-            }
-            // Hide ratings tab when going to details
-            if (ratingsTabContent) {
-                ratingsTabContent.style.display = 'none';
-                ratingsTabContent.classList.add('hide');
-                ratingsTabContent.style.pointerEvents = 'none';
-            }
-        }
-        // Check if we're navigating back to home
-        else if (currentHash.includes('#/home') || currentHash === '#/home.html' || currentHash === '' || currentHash === '#') {
-            // Check history state to see if we came from ratings tab
-            try {
-                const state = history.state || {};
-                if (state.fromRatingsTab) {
-                    console.log('[UserRatings] Navigating back from details, restoring ratings tab');
-                    // Restore ratings tab
-                    if (ratingsTabBtn) {
-                        ratingsTabBtn.classList.add('emby-tab-button-active');
-                    }
-                    if (ratingsTabContent) {
-                        // Check if content needs to be reloaded
-                        const hasContent = ratingsTabContent.innerHTML.trim().length > 0 && 
-                                         !ratingsTabContent.innerHTML.includes('Loading ratings');
-                        if (!hasContent) {
-                            setTimeout(() => displayRatingsList(), 100);
-                        } else {
-                            ratingsTabContent.classList.remove('hide');
-                            ratingsTabContent.style.display = '';
-                            ratingsTabContent.style.pointerEvents = 'auto';
-                        }
-                    }
-                    // Clear the flag
-                    history.replaceState({ ...state, fromRatingsTab: false }, '', window.location.href);
-                }
-            } catch (e) {
-                console.log('[UserRatings] Could not check history state:', e);
-            }
-        }
-        // Navigating away from home
-        else if (!currentHash.includes('#/home')) {
-            if (ratingsTabContent) {
-                ratingsTabContent.style.display = 'none';
-                ratingsTabContent.classList.add('hide');
-                ratingsTabContent.style.pointerEvents = 'none';
-            }
-            if (ratingsTabBtn) {
-                ratingsTabBtn.classList.remove('emby-tab-button-active');
-            }
-        }
-    }
+    // Track if we navigated from ratings tab to details
+    let navigatingFromRatingsTab = false;
     
     // Also check on hash change (back/forward button navigation)
     window.addEventListener('hashchange', () => {
@@ -1063,68 +989,65 @@
         const ratingsTab = document.querySelector('#ratingsTab');
         const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
         
+        // Check if navigating to details page from ratings tab
+        if (currentHash.includes('#/details') || currentHash.includes('/details')) {
+            // Store that we're coming from ratings tab if it's currently active
+            if (ratingsTabBtn && ratingsTabBtn.classList.contains('emby-tab-button-active')) {
+                navigatingFromRatingsTab = true;
+                console.log('[UserRatings] Navigating to details from ratings tab');
+            } else {
+                navigatingFromRatingsTab = false;
+            }
+            // Hide ratings tab when going to details
+            if (ratingsTab) {
+                ratingsTab.style.display = 'none';
+                ratingsTab.classList.add('hide');
+                ratingsTab.style.pointerEvents = 'none';
+            }
+        }
         // Check if navigating back to home
-        if (currentHash.includes('#/home') || currentHash === '#/home.html' || currentHash === '' || currentHash === '#') {
-            // Check history state to see if we came from ratings tab
-            try {
-                const state = history.state || {};
-                if (state.fromRatingsTab) {
-                    console.log('[UserRatings] Back button: Restoring ratings tab from history state');
-                    // Restore ratings tab
-                    if (ratingsTabBtn) {
-                        ratingsTabBtn.classList.add('emby-tab-button-active');
-                        // Remove active from other tabs
-                        document.querySelectorAll('.emby-tab-button').forEach(tab => {
-                            if (tab !== ratingsTabBtn) {
-                                tab.classList.remove('emby-tab-button-active');
-                            }
-                        });
-                    }
-                    if (ratingsTab) {
-                        // Reload content and show
-                        setTimeout(() => {
-                            displayRatingsList();
-                        }, 150);
-                    }
-                    // Clear the flag
-                    history.replaceState({ ...state, fromRatingsTab: false }, '', window.location.href);
-                } else {
-                    // Not from ratings tab - ensure other pages are visible and loaded
-                    // Hide ratings tab if it's showing
-                    if (ratingsTab) {
-                        ratingsTab.style.display = 'none';
-                        ratingsTab.classList.add('hide');
-                        ratingsTab.style.pointerEvents = 'none';
-                    }
-                    if (ratingsTabBtn) {
-                        ratingsTabBtn.classList.remove('emby-tab-button-active');
-                    }
-                    // Check if home page is blank and needs reload
-                    setTimeout(() => {
-                        const homePages = document.querySelectorAll('[data-role="page"]');
-                        let hasVisibleContent = false;
-                        homePages.forEach(page => {
-                            if (!page.classList.contains('hide') && page.style.display !== 'none' && page.id !== 'ratingsTab') {
-                                const rect = page.getBoundingClientRect();
-                                if (rect.width > 0 && rect.height > 0) {
-                                    hasVisibleContent = true;
-                                }
-                            }
-                        });
-                        // If no visible content and we're on home, trigger a soft reload
-                        if (!hasVisibleContent && (currentHash.includes('#/home') || currentHash === '' || currentHash === '#')) {
-                            console.log('[UserRatings] Home page appears blank, triggering reload');
-                            // Trigger hash change to reload page
-                            const currentHashState = window.location.hash;
-                            window.location.hash = currentHashState + (currentHashState.includes('?') ? '&' : '?') + '_t=' + Date.now();
-                            setTimeout(() => {
-                                window.location.hash = currentHashState;
-                            }, 50);
+        else if (currentHash.includes('#/home') || currentHash === '#/home.html' || currentHash === '' || currentHash === '#') {
+            if (navigatingFromRatingsTab) {
+                console.log('[UserRatings] Back button: Restoring ratings tab');
+                // Restore ratings tab
+                if (ratingsTabBtn) {
+                    ratingsTabBtn.classList.add('emby-tab-button-active');
+                    // Remove active from other tabs
+                    document.querySelectorAll('.emby-tab-button').forEach(tab => {
+                        if (tab !== ratingsTabBtn) {
+                            tab.classList.remove('emby-tab-button-active');
                         }
-                    }, 300);
+                    });
                 }
-            } catch (e) {
-                console.log('[UserRatings] Could not restore from history state:', e);
+                if (ratingsTab) {
+                    // Reload content and show
+                    setTimeout(() => {
+                        displayRatingsList();
+                    }, 150);
+                }
+                navigatingFromRatingsTab = false; // Clear flag
+            } else {
+                // Not from ratings tab - ensure ratings tab is hidden
+                if (ratingsTab) {
+                    ratingsTab.style.display = 'none';
+                    ratingsTab.classList.add('hide');
+                    ratingsTab.style.pointerEvents = 'none';
+                }
+                if (ratingsTabBtn) {
+                    ratingsTabBtn.classList.remove('emby-tab-button-active');
+                }
+            }
+        }
+        // Navigating to other pages
+        else {
+            navigatingFromRatingsTab = false; // Clear flag when going elsewhere
+            if (ratingsTab) {
+                ratingsTab.style.display = 'none';
+                ratingsTab.classList.add('hide');
+                ratingsTab.style.pointerEvents = 'none';
+            }
+            if (ratingsTabBtn) {
+                ratingsTabBtn.classList.remove('emby-tab-button-active');
             }
         }
         
@@ -1187,21 +1110,14 @@
                 homePage.parentNode.appendChild(ratingsTabContent);
             }
         
-        // Store the last active page ID in history state before switching to ratings
+        // Store the last active page ID before switching to ratings
         const activePages = Array.from(document.querySelectorAll('[data-role="page"]')).filter(page => {
             return !page.classList.contains('hide') && page.style.display !== 'none' && page.id !== 'ratingsTab';
         });
         if (activePages.length > 0) {
             lastActivePage = activePages[0];
-            const pageId = lastActivePage.id || lastActivePage.getAttribute('data-index') || null;
-            // Store in history state so we can restore it
-            try {
-                const currentState = history.state || {};
-                history.replaceState({ ...currentState, lastActivePageId: pageId }, '', window.location.href);
-                console.log('[UserRatings] Storing last active page in history state:', pageId);
-            } catch (e) {
-                console.log('[UserRatings] Could not store page in history state:', e);
-            }
+            lastActivePageId = lastActivePage.id || lastActivePage.getAttribute('data-index') || null;
+            console.log('[UserRatings] Storing last active page:', lastActivePageId);
         }
         
         // Hide all other pages and show ratings tab
@@ -1625,35 +1541,30 @@
                     ratingsTabBtn.classList.remove('emby-tab-button-active');
                 }
                 
-                // Try to restore the last active page from history state
-                setTimeout(() => {
-                    try {
-                        const state = history.state || {};
-                        const lastPageId = state.lastActivePageId;
-                        
-                        if (lastPageId) {
+                // Try to restore the last active page
+                if (lastActivePageId) {
+                    setTimeout(() => {
+                        try {
                             // Try to find and show the page by ID or data-index
-                            let pageToRestore = document.getElementById(lastPageId);
+                            let pageToRestore = document.getElementById(lastActivePageId);
                             if (!pageToRestore) {
                                 pageToRestore = Array.from(document.querySelectorAll('[data-role="page"]')).find(p => 
-                                    p.getAttribute('data-index') === lastPageId
+                                    p.getAttribute('data-index') === lastActivePageId
                                 );
                             }
                             
                             if (pageToRestore && pageToRestore !== ratingsTabContent) {
-                                console.log('[UserRatings] Restoring page from history state:', lastPageId);
+                                console.log('[UserRatings] Restoring page:', lastActivePageId);
                                 pageToRestore.classList.remove('hide');
                                 pageToRestore.style.display = '';
-                                // Clear the stored state after use
-                                history.replaceState({ ...state, lastActivePageId: null }, '', window.location.href);
                             }
+                            // Clear after use
+                            lastActivePageId = null;
+                        } catch (e) {
+                            console.log('[UserRatings] Could not restore page:', e);
                         }
-                    } catch (e) {
-                        console.log('[UserRatings] Could not restore page from history state:', e);
-                    }
-                    
-                    // Fallback: Let Jellyfin handle it if we couldn't restore
-                }, 100);
+                    }, 100);
+                }
             }, true); // Use capture to run before Jellyfin's handler
             });
         }
