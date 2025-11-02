@@ -1661,59 +1661,76 @@
         
         // Still need to handle click to prevent module loading error
         // The key is to ensure content exists BEFORE Jellyfin tries to process the click
-        ratingsTab.addEventListener('click', async function(e) {
+        // Must use capture phase AND ensure content is in #indexPage
+        ratingsTab.addEventListener('click', function(e) {
             // Only handle if this is the ratings tab being clicked
             const clickedTab = e.target.closest('.emby-tab-button');
             if (!clickedTab || clickedTab !== ratingsTab || !ratingsTab.hasAttribute('data-ratings-tab')) {
                 return; // Not our tab, let Jellyfin handle it normally
             }
             
-            // CRITICAL: Ensure content exists BEFORE Jellyfin processes the click
-            // Jellyfin looks for content with matching data-index, so we must create it synchronously
-            let content = ensureRatingsContent();
+            // CRITICAL: Ensure content exists synchronously BEFORE Jellyfin processes the click
+            // Jellyfin's getTabContainers() must find it in #indexPage at the correct array index
+            let content = document.querySelector('#ratingsTab');
+            
             if (!content) {
-                // If ensureRatingsContent failed, try creating it directly
-                const favoritesTab = document.querySelector('#favoritesTab');
-                const existingTabContent = document.querySelector('.tabContent.pageTabContent');
-                let insertLocation = null;
+                // Find #indexPage - this is where ALL tab content must live
+                const homePage = document.querySelector('#indexPage') || 
+                               document.querySelector('[data-role="page"].homePage');
                 
-                if (favoritesTab && favoritesTab.parentNode) {
-                    insertLocation = favoritesTab.parentNode;
-                } else if (existingTabContent && existingTabContent.parentNode) {
-                    insertLocation = existingTabContent.parentNode;
+                if (!homePage) {
+                    console.error('[UserRatings] Cannot find #indexPage - cannot create content');
+                    return;
                 }
                 
-                if (insertLocation) {
-                    const tabIndex = ratingsTab.getAttribute('data-index');
-                    content = document.createElement('div');
-                    content.id = 'ratingsTab';
-                    content.className = 'tabContent pageTabContent';
-                    if (tabIndex) {
-                        content.setAttribute('data-index', tabIndex);
-                    }
-                    content.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
-                    
-                    if (favoritesTab && favoritesTab.nextSibling) {
-                        insertLocation.insertBefore(content, favoritesTab.nextSibling);
-                    } else if (favoritesTab) {
-                        insertLocation.appendChild(content);
-                    } else {
-                        insertLocation.appendChild(content);
-                    }
-                    
-                    console.log('[UserRatings] Created ratings tab content on click');
-                }
-            } else {
-                // Ensure data-index matches
+                // Create content synchronously
                 const tabIndex = ratingsTab.getAttribute('data-index');
+                const favoritesTab = homePage.querySelector('#favoritesTab');
+                
+                content = document.createElement('div');
+                content.id = 'ratingsTab';
+                content.className = 'tabContent pageTabContent';
+                if (tabIndex) {
+                    content.setAttribute('data-index', tabIndex);
+                }
+                content.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
+                
+                // Insert into #indexPage after favoritesTab to maintain correct DOM order
+                if (favoritesTab && favoritesTab.nextSibling) {
+                    homePage.insertBefore(content, favoritesTab.nextSibling);
+                } else if (favoritesTab) {
+                    homePage.appendChild(content);
+                } else {
+                    homePage.appendChild(content);
+                }
+                
+                console.log('[UserRatings] Created ratings tab content synchronously on click in #indexPage');
+            } else {
+                // Content exists - ensure it's in the right place and data-index matches
+                const tabIndex = ratingsTab.getAttribute('data-index');
+                const homePage = document.querySelector('#indexPage');
+                
+                // If content is not in #indexPage, move it there
+                if (homePage && content.parentNode !== homePage) {
+                    console.log('[UserRatings] Moving ratings content to #indexPage');
+                    const favoritesTab = homePage.querySelector('#favoritesTab');
+                    if (favoritesTab && favoritesTab.nextSibling) {
+                        homePage.insertBefore(content, favoritesTab.nextSibling);
+                    } else {
+                        homePage.appendChild(content);
+                    }
+                }
+                
+                // Ensure data-index matches
                 if (tabIndex && content.getAttribute('data-index') !== tabIndex) {
                     content.setAttribute('data-index', tabIndex);
+                    console.log('[UserRatings] Updated data-index to', tabIndex);
                 }
             }
             
             // Don't prevent default - let Jellyfin handle tab switching
             // The tabchange event listener above will handle loading content
-        }, true); // Use capture phase to ensure we run before Jellyfin's handlers
+        }, true); // Use capture phase to ensure we run BEFORE Jellyfin's handlers process the click
         
         // Also watch for when the tab content becomes visible (is-active class added)
         // This handles cases where Jellyfin shows the tab without a click
