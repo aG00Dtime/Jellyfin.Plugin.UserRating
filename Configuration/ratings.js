@@ -1644,24 +1644,63 @@
         // Store the dummy controller globally so we can access it later
         window._ratingsDummyController = dummyController;
         
+        // FALLBACK: Global error handler to catch module loading errors
+        // This catches errors that our patch might miss
+        // We'll prevent the error from propagating if it's related to our tab
+        if (!window._ratingsErrorHandlerAdded) {
+            window.addEventListener('unhandledrejection', function(e) {
+                if (e.reason && e.reason.message && 
+                    (e.reason.message.includes('Cannot find module') || 
+                     e.reason.message.includes("Cannot find module './'"))) {
+                    // Check if we're on the home page and this might be our tab
+                    const isHomePage = window.location.hash.includes('home') || 
+                                     window.location.hash === '' || 
+                                     window.location.hash === '#';
+                    if (isHomePage) {
+                        console.warn('[UserRatings] Caught module loading error (likely for ratings tab):', e.reason.message);
+                        // Prevent the error from propagating - the tab will still work
+                        e.preventDefault();
+                        // Try to patch again in case the view was just created
+                        setTimeout(() => {
+                            if (typeof window._patchRatingsGetTabController === 'function') {
+                                window._patchRatingsGetTabController();
+                            }
+                        }, 50);
+                    }
+                }
+            });
+            window._ratingsErrorHandlerAdded = true;
+        }
+        
         // Try to patch getTabController by listening for viewshow events
         // The view is created when the home page is shown
         const patchGetTabController = () => {
             // Try multiple ways to find the view instance
             const homePage = document.querySelector('#indexPage');
-            if (!homePage) return false;
+            if (!homePage) {
+                console.log('[UserRatings] Cannot find #indexPage for patching');
+                return false;
+            }
             
             // Look for the view instance on the page element or in global scope
             // Jellyfin might attach it to the page element or store it globally
             let viewInstance = null;
             
-            // Method 1: Try to find it via the page element's properties
-            for (let key in homePage) {
-                if (homePage[key] && typeof homePage[key] === 'object' && homePage[key].getTabController) {
-                    viewInstance = homePage[key];
-                    console.log('[UserRatings] Found view instance via page element property:', key);
-                    break;
+            // Method 1: Try to find it via the page element's properties (including Symbol properties)
+            try {
+                for (let key in homePage) {
+                    try {
+                        if (homePage[key] && typeof homePage[key] === 'object' && homePage[key].getTabController) {
+                            viewInstance = homePage[key];
+                            console.log('[UserRatings] Found view instance via page element property:', key);
+                            break;
+                        }
+                    } catch (e) {
+                        // Ignore errors accessing properties
+                    }
                 }
+            } catch (e) {
+                // Ignore
             }
             
             // Method 2: Try accessing via router
@@ -1679,32 +1718,80 @@
             
             // Method 3: Try to find via event targets or DOM data attributes
             if (!viewInstance) {
-                // Check if homePage has any custom properties set by Jellyfin
-                if (homePage._view) {
-                    viewInstance = homePage._view;
-                    console.log('[UserRatings] Found view instance via homePage._view');
+                try {
+                    // Check if homePage has any custom properties set by Jellyfin
+                    if (homePage._view) {
+                        viewInstance = homePage._view;
+                        console.log('[UserRatings] Found view instance via homePage._view');
+                    }
+                } catch (e) {
+                    // Ignore
                 }
             }
             
             // Method 4: Search the entire document for objects with getTabController
             if (!viewInstance) {
-                // This is more expensive but might find it
-                const allElements = document.querySelectorAll('[data-role="page"]');
-                for (let elem of allElements) {
-                    for (let key in elem) {
-                        if (elem[key] && typeof elem[key] === 'object' && elem[key].getTabController) {
-                            viewInstance = elem[key];
-                            console.log('[UserRatings] Found view instance via search on element:', elem.id || elem.className);
-                            break;
+                try {
+                    // This is more expensive but might find it
+                    const allElements = document.querySelectorAll('[data-role="page"]');
+                    for (let elem of allElements) {
+                        try {
+                            for (let key in elem) {
+                                try {
+                                    if (elem[key] && typeof elem[key] === 'object' && elem[key].getTabController) {
+                                        viewInstance = elem[key];
+                                        console.log('[UserRatings] Found view instance via search on element:', elem.id || elem.className);
+                                        break;
+                                    }
+                                } catch (e) {
+                                    // Ignore
+                                }
+                            }
+                        } catch (e) {
+                            // Ignore
+                        }
+                        if (viewInstance) break;
+                    }
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            
+            // Method 5: Try to find it through the tabs element or its parent
+            if (!viewInstance) {
+                try {
+                    const tabsElement = findTabsElement();
+                    if (tabsElement) {
+                        let current = tabsElement;
+                        for (let i = 0; i < 5 && current; i++) {
+                            for (let key in current) {
+                                try {
+                                    if (current[key] && typeof current[key] === 'object' && current[key].getTabController) {
+                                        viewInstance = current[key];
+                                        console.log('[UserRatings] Found view instance via tabs element traversal:', key);
+                                        break;
+                                    }
+                                } catch (e) {
+                                    // Ignore
+                                }
+                            }
+                            if (viewInstance) break;
+                            current = current.parentElement;
                         }
                     }
-                    if (viewInstance) break;
+                } catch (e) {
+                    // Ignore
                 }
             }
             
             if (viewInstance && viewInstance.getTabController) {
                 // Always re-patch (don't check _ratingsPatched) because the view might be recreated
-                const originalGetTabController = viewInstance.getTabController.bind(viewInstance);
+                // Store original if not already stored (to avoid losing reference on re-patch)
+                if (!viewInstance.getTabController._ratingsOriginal) {
+                    viewInstance.getTabController._ratingsOriginal = viewInstance.getTabController.bind(viewInstance);
+                }
+                const originalGetTabController = viewInstance.getTabController._ratingsOriginal;
+                
                 viewInstance.getTabController = function(index) {
                     if (index === tabIndex) {
                         // Return our dummy controller for the ratings tab
@@ -1718,7 +1805,7 @@
                         if (result && typeof result.then === 'function') {
                             return result.catch(error => {
                                 // If it's a module loading error for an unknown index, return dummy controller
-                                if (error.message && (error.message.includes('Cannot find module') || error.message.includes('Failed to fetch'))) {
+                                if (error && error.message && (error.message.includes('Cannot find module') || error.message.includes('Failed to fetch') || error.message.includes("Cannot find module './'"))) {
                                     console.warn('[UserRatings] Module loading failed for index', index, '- returning dummy controller', error.message);
                                     return dummyController;
                                 }
@@ -1728,7 +1815,7 @@
                         return result;
                     } catch (error) {
                         // If original method fails (e.g., index out of range), return dummy controller
-                        if (error.message && (error.message.includes('Cannot find module') || error.message.includes('Failed to fetch'))) {
+                        if (error && error.message && (error.message.includes('Cannot find module') || error.message.includes('Failed to fetch') || error.message.includes("Cannot find module './'"))) {
                             console.warn('[UserRatings] getTabController failed for index', index, '- returning dummy controller', error.message);
                             return Promise.resolve(dummyController);
                         }
@@ -1738,6 +1825,14 @@
                 viewInstance.getTabController._ratingsPatched = true;
                 console.log('[UserRatings] Successfully monkey-patched getTabController to prevent module loading error');
                 return true;
+            } else {
+                console.log('[UserRatings] Could not find viewInstance or getTabController method');
+                // Log more details for debugging
+                if (!viewInstance) {
+                    console.log('[UserRatings] viewInstance is null/undefined');
+                } else {
+                    console.log('[UserRatings] viewInstance found but no getTabController method:', Object.keys(viewInstance).slice(0, 20));
+                }
             }
             
             // Also try to patch at the TabbedView level if we can find it
@@ -1748,6 +1843,36 @@
                     viewInstance.tabControllers[tabIndex] = dummyController;
                     console.log('[UserRatings] Pre-populated tabControllers[' + tabIndex + '] with dummy controller');
                 }
+            }
+            
+            // Last resort: Try to monkey-patch the Promise.prototype.then to catch module loading errors
+            // This is very aggressive but might catch errors we miss
+            if (!window._ratingsPromisePatched) {
+                const originalThen = Promise.prototype.then;
+                Promise.prototype.then = function(onFulfilled, onRejected) {
+                    // Wrap onRejected to catch module loading errors
+                    if (onRejected) {
+                        const wrappedRejected = function(error) {
+                            if (error && error.message && 
+                                (error.message.includes('Cannot find module') || 
+                                 error.message.includes("Cannot find module './'"))) {
+                                const isHomePage = window.location.hash.includes('home') || 
+                                                 window.location.hash === '' || 
+                                                 window.location.hash === '#';
+                                if (isHomePage) {
+                                    console.warn('[UserRatings] Caught promise rejection for module loading:', error.message);
+                                    // Return dummy controller to prevent error
+                                    return dummyController;
+                                }
+                            }
+                            return onRejected.call(this, error);
+                        };
+                        return originalThen.call(this, onFulfilled, wrappedRejected);
+                    }
+                    return originalThen.call(this, onFulfilled, onRejected);
+                };
+                window._ratingsPromisePatched = true;
+                console.log('[UserRatings] Added promise-level error handling');
             }
             
             return false;
