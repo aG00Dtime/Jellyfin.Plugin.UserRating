@@ -9,12 +9,12 @@
     "imageUrl": "https://raw.githubusercontent.com/aG00Dtime/Jellyfin.Plugin.UserRating/main/icon.png",
     "versions": [
       {
-        "version": "1.7.17.0",
-        "changelog": "Release 1.7.17",
+        "version": "1.7.18.0",
+        "changelog": "Release 1.7.18",
         "targetAbi": "10.9.0.0",
-        "sourceUrl": "https://github.com/aG00Dtime/Jellyfin.Plugin.UserRating/releases/download/v1.7.17/Jellyfin.Plugin.UserRatings.zip",
-        "checksum": "01a9d9915db01dd6bc3787bbf3bfda7f",
-        "timestamp": "2025-11-02T10:50:58Z"
+        "sourceUrl": "https://github.com/aG00Dtime/Jellyfin.Plugin.UserRating/releases/download/v1.7.18/Jellyfin.Plugin.UserRatings.zip",
+        "checksum": "8ca4bd5be4e7954b14976a63a8a79b25",
+        "timestamp": "2025-11-02T11:00:17Z"
       }
     ]
   }

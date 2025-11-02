@@ -1524,7 +1524,45 @@
         const existingTabs = tabsSlider.querySelectorAll('.emby-tab-button');
         const nextIndex = existingTabs.length;
 
-        // Create the ratings tab button
+        // IMPORTANT: Create the content container FIRST, before the tab button
+        // This prevents Jellyfin from trying to load a module when it processes the tab
+        let ratingsTabContent = document.querySelector('#ratingsTab');
+        if (!ratingsTabContent) {
+            const favoritesTab = document.querySelector('#favoritesTab');
+            const existingTabContent = document.querySelector('.tabContent.pageTabContent');
+            
+            let insertLocation = null;
+            if (favoritesTab && favoritesTab.parentNode) {
+                insertLocation = favoritesTab.parentNode;
+            } else if (existingTabContent && existingTabContent.parentNode) {
+                insertLocation = existingTabContent.parentNode;
+            } else {
+                const homePage = document.querySelector('[data-role="page"]');
+                if (homePage && homePage.parentNode) {
+                    insertLocation = homePage.parentNode;
+                }
+            }
+            
+            if (insertLocation) {
+                ratingsTabContent = document.createElement('div');
+                ratingsTabContent.id = 'ratingsTab';
+                ratingsTabContent.className = 'tabContent pageTabContent hide';
+                ratingsTabContent.setAttribute('data-index', nextIndex);
+                ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
+                
+                if (favoritesTab && favoritesTab.nextSibling) {
+                    insertLocation.insertBefore(ratingsTabContent, favoritesTab.nextSibling);
+                } else if (favoritesTab) {
+                    insertLocation.appendChild(ratingsTabContent);
+                } else if (existingTabContent && existingTabContent.nextSibling) {
+                    insertLocation.insertBefore(ratingsTabContent, existingTabContent.nextSibling);
+                } else {
+                    insertLocation.appendChild(ratingsTabContent);
+                }
+            }
+        }
+
+        // Create the ratings tab button AFTER the content exists
         const ratingsTab = document.createElement('button');
         ratingsTab.type = 'button';
         ratingsTab.setAttribute('is', 'emby-button');
@@ -1533,26 +1571,57 @@
         ratingsTab.setAttribute('data-ratings-tab', 'true');
         ratingsTab.innerHTML = '<div class="emby-button-foreground">User Ratings</div>';
 
-        // Add click handler - load content when ratings tab is clicked
+        // Helper to ensure content exists (fallback)
+        const ensureRatingsContent = () => {
+            return document.querySelector('#ratingsTab') || ratingsTabContent;
+        };
+
+        // Add click handler - manually handle tab switching to prevent module loading error
         ratingsTab.addEventListener('click', async function(e) {
-            // Let Jellyfin handle the tab switching naturally (don't preventDefault)
-            // Load content after a short delay to let Jellyfin finish its tab switching
-            setTimeout(async () => {
-                const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
-                const ratingsTabContent = document.querySelector('#ratingsTab');
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation(); // Also stop immediate propagation
+            
+            // Ensure content exists
+            let content = ensureRatingsContent();
+            if (!content) {
+                console.error('[UserRatings] Could not ensure ratings tab content');
+                return;
+            }
+            
+            const ratingsTabContent = content;
+            
+            // Manually switch tabs like Jellyfin does
+            const tabsSlider = ratingsTab.closest('.emby-tabs-slider');
+            if (tabsSlider) {
+                // Remove active from all tabs
+                tabsSlider.querySelectorAll('.emby-tab-button').forEach(tab => {
+                    tab.classList.remove('emby-tab-button-active');
+                });
+                // Add active to this tab
+                ratingsTab.classList.add('emby-tab-button-active');
                 
-                // Check if this tab is now active
-                if (ratingsTabBtn && ratingsTabBtn.classList.contains('emby-tab-button-active')) {
-                    // Always load content when tab is clicked and active
-                    // displayRatingsList will handle checking if content already exists
+                // Hide all tab content
+                const allTabContent = document.querySelectorAll('.tabContent.pageTabContent');
+                allTabContent.forEach(content => {
+                    content.classList.add('hide');
+                });
+                
+                // Show ratings tab content
+                ratingsTabContent.classList.remove('hide');
+                
+                // Load content if needed
+                if (!ratingsTabContent.innerHTML.trim() || 
+                    ratingsTabContent.innerHTML.includes('Loading ratings') ||
+                    ratingsTabContent.innerHTML.length < 100) {
                     try {
                         await displayRatingsList();
                     } catch (error) {
                         console.error('[UserRatings] Error in displayRatingsList:', error);
                     }
                 }
-            }, 150);
-        });
+            }
+        }, true); // Use capture phase to run before Jellyfin's handlers
         
         // Also watch for when the tab content becomes visible (hide class removed)
         // This handles cases where Jellyfin shows the tab without a click
