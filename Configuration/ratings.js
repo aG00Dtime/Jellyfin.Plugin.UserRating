@@ -970,113 +970,49 @@
     setTimeout(injectRatingsUI, 300);
     setTimeout(injectRatingsUI, 600);
     
-    // Monkey-patch history API to track navigation (like custom tabs plugin)
-    const originalPushState = history.pushState;
-    const originalReplaceState = history.replaceState;
+    // Track if we're on ratings tab when navigating to details
+    let wasOnRatingsTab = false;
     
-    history.pushState = function() {
-        originalPushState.apply(history, arguments);
-        handleHistoryChange();
-    };
-    
-    history.replaceState = function() {
-        originalReplaceState.apply(history, arguments);
-        handleHistoryChange();
-    };
-    
-    function handleHistoryChange() {
+    // Handle navigation - only manage ratings tab visibility, don't interfere with normal navigation
+    function handleNavigation() {
         const currentHash = window.location.hash;
         const ratingsTabContent = document.querySelector('#ratingsTab');
         const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
         
-        // Check if navigating to details page from ratings tab
-        if (currentHash.includes('#/details') || currentHash.includes('/details')) {
-            // Store that we're coming from ratings tab if it's currently active
-            if (ratingsTabBtn && ratingsTabBtn.classList.contains('emby-tab-button-active')) {
-                try {
-                    const currentState = history.state || {};
-                    history.replaceState({ ...currentState, fromRatingsTab: true }, '', window.location.href);
-                    console.log('[UserRatings] Storing ratings tab state in history');
-                } catch (e) {
-                    console.log('[UserRatings] Could not store history state:', e);
-                }
-            }
-            // Hide ratings tab when going to details
-            if (ratingsTabContent) {
-                ratingsTabContent.style.display = 'none';
-                ratingsTabContent.classList.remove('is-active');
-                ratingsTabContent.style.pointerEvents = 'none';
-            }
+        // Check if we're navigating to details from ratings tab
+        if ((currentHash.includes('#/details') || currentHash.includes('/details')) && 
+            ratingsTabBtn && ratingsTabBtn.classList.contains('emby-tab-button-active')) {
+            wasOnRatingsTab = true;
+            console.log('[UserRatings] Navigating to details from ratings tab');
         }
-        // Check if navigating back to home - restore ratings tab if needed
-        else if (currentHash.includes('#/home') || currentHash === '#/home.html' || currentHash === '' || currentHash === '#') {
-            try {
-                const state = history.state || {};
-                if (state.fromRatingsTab) {
-                    console.log('[UserRatings] Restoring ratings tab from history - refreshing content');
-                    // Restore and refresh ratings tab
-                    if (ratingsTabBtn) {
-                        ratingsTabBtn.classList.add('emby-tab-button-active');
-                        // Remove active from other tabs
-                        document.querySelectorAll('.emby-tab-button').forEach(tab => {
-                            if (tab !== ratingsTabBtn) {
-                                tab.classList.remove('emby-tab-button-active');
-                            }
-                        });
-                    }
-                    if (ratingsTabContent) {
-                        // Refresh the content by calling displayRatingsList
-                        setTimeout(() => {
-                            displayRatingsList();
-                        }, 150);
-                    }
-                    // Clear the flag
-                    history.replaceState({ ...state, fromRatingsTab: false }, '', window.location.href);
-                }
-            } catch (e) {
-                console.log('[UserRatings] Could not restore ratings tab from history:', e);
+        
+        // Check if navigating back to home
+        if (currentHash.includes('#/home') || currentHash === '#/home.html' || currentHash === '' || currentHash === '#') {
+            // Only restore ratings tab if we were on it before navigating away
+            if (wasOnRatingsTab) {
+                console.log('[UserRatings] Navigating back to home - restoring ratings tab if needed');
+                // Don't force it - let user navigate naturally, but we'll restore state if they click the tab
+                wasOnRatingsTab = false;
             }
-        }
-        // If navigating away from home and ratings tab is visible, hide it
-        else if (ratingsTabContent && !currentHash.includes('#/home')) {
-            ratingsTabContent.style.display = 'none';
-            ratingsTabContent.classList.remove('is-active');
-            ratingsTabContent.style.pointerEvents = 'none';
-            
-            if (ratingsTabBtn) {
-                ratingsTabBtn.classList.remove('emby-tab-button-active');
-            }
+        } else {
+            // Not on home page - clear the flag
+            wasOnRatingsTab = false;
         }
     }
     
-    // Also check on hash change
+    // Only listen to hashchange - don't monkey-patch history API as it interferes with navigation
+    // Use passive: false because we need to remove UI, but make all operations async to not block
     window.addEventListener('hashchange', () => {
-        // Remove old UI on hash change
+        // Remove old UI on hash change (detail page UI)
         const oldUI = document.getElementById('user-ratings-ui');
         if (oldUI) {
             oldUI.remove();
         }
         
-        // Manage page visibility
-        const ratingsTab = document.querySelector('#ratingsTab');
-        const currentHash = window.location.hash;
-        
-        if (ratingsTab) {
-            if (!currentHash.includes('home')) {
-                // Navigating away from home - hide ratings page
-                console.log('[UserRatings] Navigating away from home - hiding ratings page');
-                ratingsTab.style.display = 'none';
-                ratingsTab.classList.add('hide');
-            } else if (currentHash.includes('home')) {
-                // Navigating back to home - ensure ratings page is hidden
-                console.log('[UserRatings] Navigating to home - ensuring clean state');
-                ratingsTab.style.display = 'none';
-                ratingsTab.classList.add('hide');
-                
-                // Don't hide other pages - let Jellyfin handle page visibility
-                // This was causing issues with favorites and other pages
-            }
-        }
+        // Handle navigation asynchronously to not block navigation
+        setTimeout(() => {
+            handleNavigation();
+        }, 0);
         
         // Reset injection state (don't mark as navigating - let normal navigation proceed)
         isInjecting = false;
