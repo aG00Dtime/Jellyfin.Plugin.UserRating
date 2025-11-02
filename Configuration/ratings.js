@@ -988,6 +988,51 @@
         
         // Check if navigating back to home
         if (currentHash.includes('#/home') || currentHash === '#/home.html' || currentHash === '' || currentHash === '#') {
+            // When returning to home, ensure ratings tab content exists if tab button exists
+            // This prevents the "Cannot find module" error when clicking the tab
+            if (ratingsTabBtn && !ratingsTabContent) {
+                console.log('[UserRatings] On home page but ratings content missing - recreating it');
+                
+                // Recreate the content element so it's ready when user clicks the tab
+                const favoritesTab = document.querySelector('#favoritesTab');
+                const existingTabContent = document.querySelector('.tabContent.pageTabContent');
+                let insertLocation = null;
+                
+                if (favoritesTab && favoritesTab.parentNode) {
+                    insertLocation = favoritesTab.parentNode;
+                } else if (existingTabContent && existingTabContent.parentNode) {
+                    insertLocation = existingTabContent.parentNode;
+                } else {
+                    const homePage = document.querySelector('[data-role="page"]');
+                    if (homePage && homePage.parentNode) {
+                        insertLocation = homePage.parentNode;
+                    }
+                }
+                
+                if (insertLocation) {
+                    const tabIndex = ratingsTabBtn.getAttribute('data-index');
+                    const newContent = document.createElement('div');
+                    newContent.id = 'ratingsTab';
+                    newContent.className = 'tabContent pageTabContent';
+                    if (tabIndex) {
+                        newContent.setAttribute('data-index', tabIndex);
+                    }
+                    newContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
+                    
+                    if (favoritesTab && favoritesTab.nextSibling) {
+                        insertLocation.insertBefore(newContent, favoritesTab.nextSibling);
+                    } else if (favoritesTab) {
+                        insertLocation.appendChild(newContent);
+                    } else if (existingTabContent && existingTabContent.nextSibling) {
+                        insertLocation.insertBefore(newContent, existingTabContent.nextSibling);
+                    } else {
+                        insertLocation.appendChild(newContent);
+                    }
+                    
+                    console.log('[UserRatings] Recreated ratings tab content on home navigation');
+                }
+            }
+            
             // Only restore ratings tab if we were on it before navigating away
             if (wasOnRatingsTab) {
                 console.log('[UserRatings] Navigating back to home - restoring ratings tab if needed');
@@ -1602,7 +1647,7 @@
         }
         
         // Still need to handle click to prevent module loading error
-        // But we'll let Jellyfin handle the tab switching after we prevent the module load
+        // The key is to ensure content exists BEFORE Jellyfin tries to process the click
         ratingsTab.addEventListener('click', async function(e) {
             // Only handle if this is the ratings tab being clicked
             const clickedTab = e.target.closest('.emby-tab-button');
@@ -1610,12 +1655,52 @@
                 return; // Not our tab, let Jellyfin handle it normally
             }
             
-            // Ensure content exists before Jellyfin processes the click
-            ensureRatingsContent();
+            // CRITICAL: Ensure content exists BEFORE Jellyfin processes the click
+            // Jellyfin looks for content with matching data-index, so we must create it synchronously
+            let content = ensureRatingsContent();
+            if (!content) {
+                // If ensureRatingsContent failed, try creating it directly
+                const favoritesTab = document.querySelector('#favoritesTab');
+                const existingTabContent = document.querySelector('.tabContent.pageTabContent');
+                let insertLocation = null;
+                
+                if (favoritesTab && favoritesTab.parentNode) {
+                    insertLocation = favoritesTab.parentNode;
+                } else if (existingTabContent && existingTabContent.parentNode) {
+                    insertLocation = existingTabContent.parentNode;
+                }
+                
+                if (insertLocation) {
+                    const tabIndex = ratingsTab.getAttribute('data-index');
+                    content = document.createElement('div');
+                    content.id = 'ratingsTab';
+                    content.className = 'tabContent pageTabContent';
+                    if (tabIndex) {
+                        content.setAttribute('data-index', tabIndex);
+                    }
+                    content.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
+                    
+                    if (favoritesTab && favoritesTab.nextSibling) {
+                        insertLocation.insertBefore(content, favoritesTab.nextSibling);
+                    } else if (favoritesTab) {
+                        insertLocation.appendChild(content);
+                    } else {
+                        insertLocation.appendChild(content);
+                    }
+                    
+                    console.log('[UserRatings] Created ratings tab content on click');
+                }
+            } else {
+                // Ensure data-index matches
+                const tabIndex = ratingsTab.getAttribute('data-index');
+                if (tabIndex && content.getAttribute('data-index') !== tabIndex) {
+                    content.setAttribute('data-index', tabIndex);
+                }
+            }
             
             // Don't prevent default - let Jellyfin handle tab switching
             // The tabchange event listener above will handle loading content
-        }, false);
+        }, true); // Use capture phase to ensure we run before Jellyfin's handlers
         
         // Also watch for when the tab content becomes visible (is-active class added)
         // This handles cases where Jellyfin shows the tab without a click
