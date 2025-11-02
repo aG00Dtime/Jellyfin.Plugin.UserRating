@@ -1552,10 +1552,7 @@
                 ratingsTabContent.id = 'ratingsTab';
                 ratingsTabContent.className = 'tabContent pageTabContent hide';
                 ratingsTabContent.setAttribute('data-index', nextIndex);
-                // Ensure it has the same structure as other tab content
-                ratingsTabContent.style.position = 'relative';
-                ratingsTabContent.style.width = '100%';
-                ratingsTabContent.style.height = '100%';
+                // Don't set inline styles - let Jellyfin handle styling to match other tabs
                 ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
                 
                 if (favoritesTab && favoritesTab.nextSibling) {
@@ -1622,15 +1619,8 @@
             // Add active to this tab
             ratingsTab.classList.add('emby-tab-button-active');
             
-            // Hide all other tab content - only hide the class, let Jellyfin manage display
-            const allTabContent = document.querySelectorAll('.tabContent.pageTabContent');
-            console.log('[UserRatings] Found', allTabContent.length, 'tab content elements');
-            allTabContent.forEach(tabContent => {
-                if (tabContent.id !== 'ratingsTab') {
-                    tabContent.classList.add('hide');
-                    // Don't set display:none - let Jellyfin manage it for proper tab switching
-                }
-            });
+            // Don't manually hide other tabs - let Jellyfin handle tab switching naturally
+            // We'll just show our tab, Jellyfin will hide others automatically
             
             // Always load/refresh content first
             try {
@@ -1643,36 +1633,48 @@
             
             // Now show ratings tab content - ensure it's fully visible
             ratingsTabContent.classList.remove('hide');
-            // Clear any inline display/visibility styles that might be hiding it
+            // Remove inline styles that might interfere - let Jellyfin handle styling
             ratingsTabContent.style.display = '';
             ratingsTabContent.style.visibility = '';
             ratingsTabContent.style.opacity = '';
-            // Force visibility and ensure proper positioning
-            ratingsTabContent.style.pointerEvents = 'auto';
-            ratingsTabContent.style.position = 'relative';
-            ratingsTabContent.style.width = '100%';
-            ratingsTabContent.style.height = 'auto';
-            ratingsTabContent.style.minHeight = '100%';
+            ratingsTabContent.style.position = '';
+            ratingsTabContent.style.width = '';
+            ratingsTabContent.style.height = '';
+            ratingsTabContent.style.minHeight = '';
             
-            // Ensure parent containers are visible
+            // Ensure parent containers are visible and have proper sizing
             let parent = ratingsTabContent.parentElement;
-            while (parent && parent !== document.body) {
+            let parentDepth = 0;
+            while (parent && parent !== document.body && parentDepth < 10) {
+                // Check if parent needs to be visible
                 if (parent.classList && parent.classList.contains('hide')) {
                     parent.classList.remove('hide');
                 }
                 if (parent.style && parent.style.display === 'none') {
                     parent.style.display = '';
                 }
+                // Ensure parent has dimensions
+                const parentRect = parent.getBoundingClientRect();
+                if (parentRect.width === 0 || parentRect.height === 0) {
+                    // Force parent to have dimensions if it's a container
+                    if (parent.classList && (parent.classList.contains('page') || parent.classList.contains('content-primary') || parent.classList.contains('mainAnimatedPage'))) {
+                        parent.style.minHeight = '100%';
+                        parent.style.display = 'block';
+                    }
+                }
                 parent = parent.parentElement;
+                parentDepth++;
             }
             
             console.log('[UserRatings] Showing ratings tab content, innerHTML length:', ratingsTabContent.innerHTML.length);
             console.log('[UserRatings] Content classes:', ratingsTabContent.className);
+            console.log('[UserRatings] Content parent:', ratingsTabContent.parentElement?.tagName, ratingsTabContent.parentElement?.className);
             const computed = window.getComputedStyle(ratingsTabContent);
             console.log('[UserRatings] Content computed display:', computed.display);
             console.log('[UserRatings] Content computed visibility:', computed.visibility);
             console.log('[UserRatings] Content computed opacity:', computed.opacity);
             console.log('[UserRatings] Content rect:', ratingsTabContent.getBoundingClientRect());
+            console.log('[UserRatings] Parent rect:', ratingsTabContent.parentElement?.getBoundingClientRect());
         }, true); // Use capture phase to run before Jellyfin's handlers
         
         // Also watch for when the tab content becomes visible (hide class removed)
