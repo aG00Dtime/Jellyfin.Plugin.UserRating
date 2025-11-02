@@ -1552,6 +1552,10 @@
                 ratingsTabContent.id = 'ratingsTab';
                 ratingsTabContent.className = 'tabContent pageTabContent hide';
                 ratingsTabContent.setAttribute('data-index', nextIndex);
+                // Ensure it has the same structure as other tab content
+                ratingsTabContent.style.position = 'relative';
+                ratingsTabContent.style.width = '100%';
+                ratingsTabContent.style.height = '100%';
                 ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
                 
                 if (favoritesTab && favoritesTab.nextSibling) {
@@ -1587,6 +1591,7 @@
                 return; // Not our tab, let Jellyfin handle it
             }
             
+            // Prevent default and stop propagation to prevent Jellyfin from trying to load a module
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
@@ -1617,20 +1622,17 @@
             // Add active to this tab
             ratingsTab.classList.add('emby-tab-button-active');
             
-            // Hide all tab content (but let Jellyfin handle showing others)
+            // Hide all other tab content - only hide the class, let Jellyfin manage display
             const allTabContent = document.querySelectorAll('.tabContent.pageTabContent');
             console.log('[UserRatings] Found', allTabContent.length, 'tab content elements');
             allTabContent.forEach(tabContent => {
                 if (tabContent.id !== 'ratingsTab') {
                     tabContent.classList.add('hide');
+                    // Don't set display:none - let Jellyfin manage it for proper tab switching
                 }
             });
             
-            // Show ratings tab content
-            ratingsTabContent.classList.remove('hide');
-            console.log('[UserRatings] Showing ratings tab content, innerHTML length:', ratingsTabContent.innerHTML.length);
-            
-            // Always load content (it might be empty or just have loading message)
+            // Always load/refresh content first
             try {
                 console.log('[UserRatings] Calling displayRatingsList');
                 await displayRatingsList();
@@ -1638,6 +1640,39 @@
             } catch (error) {
                 console.error('[UserRatings] Error in displayRatingsList:', error);
             }
+            
+            // Now show ratings tab content - ensure it's fully visible
+            ratingsTabContent.classList.remove('hide');
+            // Clear any inline display/visibility styles that might be hiding it
+            ratingsTabContent.style.display = '';
+            ratingsTabContent.style.visibility = '';
+            ratingsTabContent.style.opacity = '';
+            // Force visibility and ensure proper positioning
+            ratingsTabContent.style.pointerEvents = 'auto';
+            ratingsTabContent.style.position = 'relative';
+            ratingsTabContent.style.width = '100%';
+            ratingsTabContent.style.height = 'auto';
+            ratingsTabContent.style.minHeight = '100%';
+            
+            // Ensure parent containers are visible
+            let parent = ratingsTabContent.parentElement;
+            while (parent && parent !== document.body) {
+                if (parent.classList && parent.classList.contains('hide')) {
+                    parent.classList.remove('hide');
+                }
+                if (parent.style && parent.style.display === 'none') {
+                    parent.style.display = '';
+                }
+                parent = parent.parentElement;
+            }
+            
+            console.log('[UserRatings] Showing ratings tab content, innerHTML length:', ratingsTabContent.innerHTML.length);
+            console.log('[UserRatings] Content classes:', ratingsTabContent.className);
+            const computed = window.getComputedStyle(ratingsTabContent);
+            console.log('[UserRatings] Content computed display:', computed.display);
+            console.log('[UserRatings] Content computed visibility:', computed.visibility);
+            console.log('[UserRatings] Content computed opacity:', computed.opacity);
+            console.log('[UserRatings] Content rect:', ratingsTabContent.getBoundingClientRect());
         }, true); // Use capture phase to run before Jellyfin's handlers
         
         // Also watch for when the tab content becomes visible (hide class removed)
