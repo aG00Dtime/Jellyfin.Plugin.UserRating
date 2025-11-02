@@ -1167,11 +1167,15 @@
             }
         }
         
-        // Don't manually manage visibility - Jellyfin will show/hide based on active tab button
-        // The hide class will be managed by Jellyfin's tab switching system
+        console.log('[UserRatings] displayRatingsList - content element:', ratingsTabContent);
 
         // Show loading
-        ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
+        if (ratingsTabContent) {
+            ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
+        } else {
+            console.error('[UserRatings] ratingsTabContent is null!');
+            return;
+        }
 
         try {
             // Get all rated items
@@ -1578,9 +1582,16 @@
 
         // Add click handler - manually handle tab switching to prevent module loading error
         ratingsTab.addEventListener('click', async function(e) {
+            // Only handle if this is the ratings tab
+            if (!ratingsTab.hasAttribute('data-ratings-tab')) {
+                return; // Not our tab, let Jellyfin handle it
+            }
+            
             e.preventDefault();
             e.stopPropagation();
-            e.stopImmediatePropagation(); // Also stop immediate propagation
+            e.stopImmediatePropagation();
+            
+            console.log('[UserRatings] Ratings tab clicked');
             
             // Ensure content exists
             let content = ensureRatingsContent();
@@ -1590,36 +1601,42 @@
             }
             
             const ratingsTabContent = content;
+            console.log('[UserRatings] Ratings tab content found:', ratingsTabContent);
             
             // Manually switch tabs like Jellyfin does
             const tabsSlider = ratingsTab.closest('.emby-tabs-slider');
-            if (tabsSlider) {
-                // Remove active from all tabs
-                tabsSlider.querySelectorAll('.emby-tab-button').forEach(tab => {
-                    tab.classList.remove('emby-tab-button-active');
-                });
-                // Add active to this tab
-                ratingsTab.classList.add('emby-tab-button-active');
-                
-                // Hide all tab content
-                const allTabContent = document.querySelectorAll('.tabContent.pageTabContent');
-                allTabContent.forEach(content => {
-                    content.classList.add('hide');
-                });
-                
-                // Show ratings tab content
-                ratingsTabContent.classList.remove('hide');
-                
-                // Load content if needed
-                if (!ratingsTabContent.innerHTML.trim() || 
-                    ratingsTabContent.innerHTML.includes('Loading ratings') ||
-                    ratingsTabContent.innerHTML.length < 100) {
-                    try {
-                        await displayRatingsList();
-                    } catch (error) {
-                        console.error('[UserRatings] Error in displayRatingsList:', error);
-                    }
+            if (!tabsSlider) {
+                console.error('[UserRatings] Could not find tabs slider');
+                return;
+            }
+            
+            // Remove active from all tabs
+            tabsSlider.querySelectorAll('.emby-tab-button').forEach(tab => {
+                tab.classList.remove('emby-tab-button-active');
+            });
+            // Add active to this tab
+            ratingsTab.classList.add('emby-tab-button-active');
+            
+            // Hide all tab content (but let Jellyfin handle showing others)
+            const allTabContent = document.querySelectorAll('.tabContent.pageTabContent');
+            console.log('[UserRatings] Found', allTabContent.length, 'tab content elements');
+            allTabContent.forEach(tabContent => {
+                if (tabContent.id !== 'ratingsTab') {
+                    tabContent.classList.add('hide');
                 }
+            });
+            
+            // Show ratings tab content
+            ratingsTabContent.classList.remove('hide');
+            console.log('[UserRatings] Showing ratings tab content, innerHTML length:', ratingsTabContent.innerHTML.length);
+            
+            // Always load content (it might be empty or just have loading message)
+            try {
+                console.log('[UserRatings] Calling displayRatingsList');
+                await displayRatingsList();
+                console.log('[UserRatings] displayRatingsList completed, new innerHTML length:', ratingsTabContent.innerHTML.length);
+            } catch (error) {
+                console.error('[UserRatings] Error in displayRatingsList:', error);
             }
         }, true); // Use capture phase to run before Jellyfin's handlers
         
