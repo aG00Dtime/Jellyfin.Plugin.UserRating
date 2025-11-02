@@ -1,5 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
+using System.Threading;
+using System.Threading.Tasks;
 using Jellyfin.Plugin.UserRatings.Helpers;
 using MediaBrowser.Controller;
 using MediaBrowser.Model.Tasks;
@@ -19,7 +24,7 @@ namespace Jellyfin.Plugin.UserRatings.Services
             _logger = logger;
         }
 
-        public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
+        public Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Registering file transformations for User Ratings plugin");
 
@@ -46,7 +51,7 @@ namespace Jellyfin.Plugin.UserRatings.Services
             if (fileTransformationAssembly == null)
             {
                 _logger.LogWarning("File Transformation plugin not found. User Ratings script injection will not work. Please install File Transformation plugin.");
-                return;
+                return Task.CompletedTask;
             }
 
             Type? pluginInterfaceType = fileTransformationAssembly.GetType("Jellyfin.Plugin.FileTransformation.PluginInterface");
@@ -54,7 +59,7 @@ namespace Jellyfin.Plugin.UserRatings.Services
             if (pluginInterfaceType == null)
             {
                 _logger.LogWarning("File Transformation PluginInterface not found.");
-                return;
+                return Task.CompletedTask;
             }
 
             MethodInfo? registerMethod = pluginInterfaceType.GetMethod("RegisterTransformation");
@@ -62,7 +67,7 @@ namespace Jellyfin.Plugin.UserRatings.Services
             if (registerMethod == null)
             {
                 _logger.LogWarning("File Transformation RegisterTransformation method not found.");
-                return;
+                return Task.CompletedTask;
             }
 
             // Register each transformation
@@ -80,6 +85,7 @@ namespace Jellyfin.Plugin.UserRatings.Services
             }
 
             _logger.LogInformation("File transformations registered successfully");
+            return Task.CompletedTask;
         }
 
         public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
