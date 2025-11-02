@@ -1098,7 +1098,15 @@
         // Find or create the ratings tab content container
         let ratingsTabContent = document.querySelector('#ratingsTab');
         
-            if (!ratingsTabContent) {
+        // If content doesn't exist yet, wait a bit and try again, then create it
+        if (!ratingsTabContent) {
+            console.log('[UserRatings] Ratings tab content not found, waiting...');
+            await new Promise(resolve => setTimeout(resolve, 200));
+            ratingsTabContent = document.querySelector('#ratingsTab');
+        }
+        
+        // Create the content container if it still doesn't exist
+        if (!ratingsTabContent) {
                 // Find where to insert the content - look for existing tabContent elements
                 // Custom tabs plugin injects content as siblings to favoritesTab
                 const favoritesTab = document.querySelector('#favoritesTab');
@@ -1525,25 +1533,58 @@
         ratingsTab.setAttribute('data-ratings-tab', 'true');
         ratingsTab.innerHTML = '<div class="emby-button-foreground">User Ratings</div>';
 
-        // Add click handler - don't preventDefault, let Jellyfin handle tab switching
+        // Add click handler - load content when ratings tab is clicked
         ratingsTab.addEventListener('click', async function(e) {
-            // Let Jellyfin handle the tab switching naturally
-            // Just ensure content is loaded when this tab becomes active
+            // Let Jellyfin handle the tab switching naturally (don't preventDefault)
+            // Load content after a short delay to let Jellyfin finish its tab switching
             setTimeout(async () => {
                 const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
+                const ratingsTabContent = document.querySelector('#ratingsTab');
+                
+                // Check if this tab is now active
                 if (ratingsTabBtn && ratingsTabBtn.classList.contains('emby-tab-button-active')) {
-                    const ratingsTabContent = document.querySelector('#ratingsTab');
-                    // Only load if content is empty or just has loading message
-                    if (ratingsTabContent && (!ratingsTabContent.innerHTML.trim() || ratingsTabContent.innerHTML.includes('Loading ratings'))) {
-                        try {
-                            await displayRatingsList();
-                        } catch (error) {
-                            console.error('[UserRatings] Error in displayRatingsList:', error);
+                    // Always load content when tab is clicked and active
+                    // displayRatingsList will handle checking if content already exists
+                    try {
+                        await displayRatingsList();
+                    } catch (error) {
+                        console.error('[UserRatings] Error in displayRatingsList:', error);
+                    }
+                }
+            }, 150);
+        });
+        
+        // Also watch for when the tab content becomes visible (hide class removed)
+        // This handles cases where Jellyfin shows the tab without a click
+        const ratingsContentObserver = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                    const target = mutation.target;
+                    if (target.id === 'ratingsTab' && !target.classList.contains('hide')) {
+                        // Tab content is now visible, load content if needed
+                        const ratingsTabContent = document.querySelector('#ratingsTab');
+                        if (ratingsTabContent && (!ratingsTabContent.innerHTML.trim() || 
+                            ratingsTabContent.innerHTML.includes('Loading ratings') ||
+                            ratingsTabContent.innerHTML.length < 100)) {
+                            displayRatingsList().catch(error => {
+                                console.error('[UserRatings] Error loading ratings:', error);
+                            });
                         }
                     }
                 }
-            }, 100);
+            });
         });
+        
+        // Start observing when ratings tab content is created
+        setTimeout(() => {
+            const ratingsTabContent = document.querySelector('#ratingsTab');
+            if (ratingsTabContent) {
+                ratingsContentObserver.observe(ratingsTabContent, {
+                    attributes: true,
+                    attributeFilter: ['class']
+                });
+            }
+        }, 500);
 
         // Don't add listeners to other tabs - let Jellyfin handle all tab switching
         // Jellyfin will automatically show/hide content based on matching data-index attributes
