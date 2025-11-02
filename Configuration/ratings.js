@@ -1004,7 +1004,7 @@
             // Hide ratings tab when going to details
             if (ratingsTabContent) {
                 ratingsTabContent.style.display = 'none';
-                ratingsTabContent.classList.add('hide');
+                ratingsTabContent.classList.remove('is-active');
                 ratingsTabContent.style.pointerEvents = 'none';
             }
         }
@@ -1040,7 +1040,7 @@
         // If navigating away from home and ratings tab is visible, hide it
         else if (ratingsTabContent && !currentHash.includes('#/home')) {
             ratingsTabContent.style.display = 'none';
-            ratingsTabContent.classList.add('hide');
+            ratingsTabContent.classList.remove('is-active');
             ratingsTabContent.style.pointerEvents = 'none';
             
             if (ratingsTabBtn) {
@@ -1134,8 +1134,9 @@
                 
                 ratingsTabContent = document.createElement('div');
                 ratingsTabContent.id = 'ratingsTab';
-                // Use the same structure as custom tabs plugin - this allows Jellyfin to handle tab switching
-                ratingsTabContent.className = 'tabContent pageTabContent hide';
+                // Use tabContent pageTabContent classes, but NOT hide - Jellyfin uses is-active
+                // Jellyfin's CSS rule: .tabContent:not(.is-active) { display: none; }
+                ratingsTabContent.className = 'tabContent pageTabContent';
                 
                 // Get the data-index from the tab button so they match
                 const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
@@ -1467,7 +1468,8 @@
             sectionsHTML += '<div id="allItemsSection"></div></div>';
             
             // Display the categorized grid
-            ratingsTabContent.innerHTML = sectionsHTML;
+            // Wrap in a sections div like favoritesTab structure
+            ratingsTabContent.innerHTML = '<div class="sections">' + sectionsHTML + '</div>';
             ratingsTabContent.style.pointerEvents = 'auto'; // Ensure clicks work
             
             // Render the "All Items" section
@@ -1550,7 +1552,9 @@
             if (insertLocation) {
                 ratingsTabContent = document.createElement('div');
                 ratingsTabContent.id = 'ratingsTab';
-                ratingsTabContent.className = 'tabContent pageTabContent hide';
+                // Use tabContent pageTabContent classes, but NOT hide - use is-active instead
+                // Jellyfin's CSS rule: .tabContent:not(.is-active) { display: none; }
+                ratingsTabContent.className = 'tabContent pageTabContent';
                 ratingsTabContent.setAttribute('data-index', nextIndex);
                 // Don't set inline styles - let Jellyfin handle styling to match other tabs
                 ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
@@ -1581,7 +1585,88 @@
             return document.querySelector('#ratingsTab') || ratingsTabContent;
         };
 
-        // Add click handler - manually handle tab switching to prevent module loading error
+        // Find the tabs element (emby-tabs) to listen for tabchange events
+        // This is how Jellyfin manages tabs - we need to hook into their system
+        const findTabsElement = () => {
+            return tabsSlider.closest('[is="emby-tabs"]') || 
+                   document.querySelector('[is="emby-tabs"]') ||
+                   tabsSlider.parentElement;
+        };
+        
+        const tabsElement = findTabsElement();
+        
+        // Listen for Jellyfin's beforetabchange event to ensure is-active class is set correctly
+        // This is how maintabsmanager.js manages tab visibility (lines 140-154)
+        if (tabsElement && typeof tabsElement.addEventListener === 'function') {
+            tabsElement.addEventListener('beforetabchange', function(e) {
+                const selectedIndex = e.detail?.selectedTabIndex;
+                const previousIndex = e.detail?.previousIndex;
+                const tabIndex = parseInt(ratingsTab.getAttribute('data-index'), 10);
+                
+                // Ensure content exists
+                const ratingsTabContent = ensureRatingsContent();
+                if (!ratingsTabContent) {
+                    return;
+                }
+                
+                // If our tab was previously active, remove is-active
+                if (previousIndex === tabIndex) {
+                    ratingsTabContent.classList.remove('is-active');
+                    console.log('[UserRatings] Removed is-active from ratings tab (switching away)');
+                }
+                
+                // If our tab is being selected, add is-active
+                if (selectedIndex === tabIndex) {
+                    ratingsTabContent.classList.add('is-active');
+                    ratingsTabContent.classList.remove('hide'); // Remove hide class if present
+                    console.log('[UserRatings] Added is-active to ratings tab');
+                }
+            });
+            
+            // Listen for tabchange event to load content
+            tabsElement.addEventListener('tabchange', async function(e) {
+                const selectedIndex = e.detail?.selectedTabIndex;
+                const tabIndex = parseInt(ratingsTab.getAttribute('data-index'), 10);
+                
+                // Check if our tab was selected
+                if (selectedIndex === tabIndex) {
+                    console.log('[UserRatings] Ratings tab selected via tabchange event');
+                    
+                    // Ensure content exists
+                    let content = ensureRatingsContent();
+                    if (!content) {
+                        console.error('[UserRatings] Could not ensure ratings tab content');
+                        return;
+                    }
+                    
+                    const ratingsTabContent = content;
+                    
+                    // Ensure is-active is set (should already be set by beforetabchange, but double-check)
+                    if (!ratingsTabContent.classList.contains('is-active')) {
+                        ratingsTabContent.classList.add('is-active');
+                        console.log('[UserRatings] Added is-active class manually (should not be needed)');
+                    }
+                    
+                    // Load content if needed
+                    const needsLoad = !ratingsTabContent.innerHTML.trim() || 
+                                     ratingsTabContent.innerHTML.includes('Loading ratings') ||
+                                     ratingsTabContent.innerHTML.length < 100;
+                    
+                    if (needsLoad) {
+                        try {
+                            console.log('[UserRatings] Loading ratings content');
+                            await displayRatingsList();
+                            console.log('[UserRatings] Content loaded, innerHTML length:', ratingsTabContent.innerHTML.length);
+                        } catch (error) {
+                            console.error('[UserRatings] Error loading content:', error);
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Still need to handle click to prevent module loading error
+        // But we'll let Jellyfin handle the tab switching after we prevent the module load
         ratingsTab.addEventListener('click', async function(e) {
             // Only handle if this is the ratings tab being clicked
             const clickedTab = e.target.closest('.emby-tab-button');
@@ -1589,91 +1674,20 @@
                 return; // Not our tab, let Jellyfin handle it normally
             }
             
-            // Prevent default and stop propagation to prevent Jellyfin from trying to load a module
-            e.preventDefault();
-            e.stopPropagation();
-            // Don't use stopImmediatePropagation in capture phase - it breaks other tabs
+            // Ensure content exists before Jellyfin processes the click
+            ensureRatingsContent();
             
-            console.log('[UserRatings] Ratings tab clicked');
-            
-            // Ensure content exists
-            let content = ensureRatingsContent();
-            if (!content) {
-                console.error('[UserRatings] Could not ensure ratings tab content');
-                return;
-            }
-            
-            const ratingsTabContent = content;
-            console.log('[UserRatings] Ratings tab content found:', ratingsTabContent);
-            
-            // Manually switch tabs like Jellyfin does
-            const tabsSlider = ratingsTab.closest('.emby-tabs-slider');
-            if (!tabsSlider) {
-                console.error('[UserRatings] Could not find tabs slider');
-                return;
-            }
-            
-            // Remove active from all tabs
-            tabsSlider.querySelectorAll('.emby-tab-button').forEach(tab => {
-                tab.classList.remove('emby-tab-button-active');
-            });
-            // Add active to this tab
-            ratingsTab.classList.add('emby-tab-button-active');
-            
-            // Hide other tab content like Jellyfin does
-            const allTabContent = document.querySelectorAll('.tabContent.pageTabContent');
-            allTabContent.forEach(tabContent => {
-                if (tabContent.id !== 'ratingsTab') {
-                    tabContent.classList.add('hide');
-                }
-            });
-            
-            // Always load/refresh content first
-            try {
-                console.log('[UserRatings] Calling displayRatingsList');
-                await displayRatingsList();
-                console.log('[UserRatings] displayRatingsList completed, new innerHTML length:', ratingsTabContent.innerHTML.length);
-            } catch (error) {
-                console.error('[UserRatings] Error in displayRatingsList:', error);
-            }
-            
-            // Now show ratings tab content - ensure it's fully visible
-            ratingsTabContent.classList.remove('hide');
-            
-            // Check computed styles to see what's hiding it
-            const computed = window.getComputedStyle(ratingsTabContent);
-            console.log('[UserRatings] Showing ratings tab content');
-            console.log('[UserRatings] Content classes:', ratingsTabContent.className);
-            console.log('[UserRatings] Content computed display:', computed.display);
-            console.log('[UserRatings] Content computed visibility:', computed.visibility);
-            console.log('[UserRatings] Content computed opacity:', computed.opacity);
-            console.log('[UserRatings] Content computed width:', computed.width);
-            console.log('[UserRatings] Content computed height:', computed.height);
-            console.log('[UserRatings] Content rect:', ratingsTabContent.getBoundingClientRect());
-            
-            // If still has zero dimensions, try to match structure of other tabs
-            const otherTab = document.querySelector('.tabContent.pageTabContent:not(#ratingsTab)');
-            if (otherTab && ratingsTabContent.getBoundingClientRect().width === 0) {
-                console.log('[UserRatings] Content has zero width, checking other tab structure');
-                const otherComputed = window.getComputedStyle(otherTab);
-                console.log('[UserRatings] Other tab computed display:', otherComputed.display);
-                console.log('[UserRatings] Other tab computed width:', otherComputed.width);
-                console.log('[UserRatings] Other tab computed height:', otherComputed.height);
-                // Copy display style if it's different
-                if (computed.display !== otherComputed.display) {
-                    ratingsTabContent.style.display = otherComputed.display;
-                    console.log('[UserRatings] Set display to match other tabs:', otherComputed.display);
-                }
-            }
-        }, false); // Use bubble phase instead of capture to avoid breaking other tabs
+            // Don't prevent default - let Jellyfin handle tab switching
+            // The tabchange event listener above will handle loading content
+        }, false);
         
-        // Also watch for when the tab content becomes visible (hide class removed)
+        // Also watch for when the tab content becomes visible (is-active class added)
         // This handles cases where Jellyfin shows the tab without a click
         const ratingsContentObserver = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
                     const target = mutation.target;
-                    if (target.id === 'ratingsTab' && !target.classList.contains('hide')) {
+                    if (target.id === 'ratingsTab' && target.classList.contains('is-active')) {
                         // Tab content is now visible, load content if needed
                         const ratingsTabContent = document.querySelector('#ratingsTab');
                         if (ratingsTabContent && (!ratingsTabContent.innerHTML.trim() || 
