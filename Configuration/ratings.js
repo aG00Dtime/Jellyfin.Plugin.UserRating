@@ -1062,22 +1062,45 @@
         // Try injection with multiple attempts
         setTimeout(injectRatingsUI, 100);
         setTimeout(injectRatingsUI, 300);
+        
+        // Try to patch getTabController when navigating to home
+        // The view might be recreated on navigation
+        if (window.location.hash.includes('home') || window.location.hash === '' || window.location.hash === '#') {
+            // Try immediately and with delays - the view might not be ready yet
+            if (window._ratingsDummyController && typeof window._patchRatingsGetTabController === 'function') {
+                window._patchRatingsGetTabController();
+                setTimeout(() => window._patchRatingsGetTabController(), 50);
+                setTimeout(() => window._patchRatingsGetTabController(), 150);
+                setTimeout(() => window._patchRatingsGetTabController(), 300);
+                setTimeout(() => window._patchRatingsGetTabController(), 500);
+            }
+        }
     });
 
     // Function to display ratings list in the home page content area
+    let isDisplayingRatingsList = false; // Prevent multiple simultaneous calls
     async function displayRatingsList() {
-        // Find or create the ratings tab content container
-        let ratingsTabContent = document.querySelector('#ratingsTab');
-        
-        // If content doesn't exist yet, wait a bit and try again, then create it
-        if (!ratingsTabContent) {
-            console.log('[UserRatings] Ratings tab content not found, waiting...');
-            await new Promise(resolve => setTimeout(resolve, 200));
-            ratingsTabContent = document.querySelector('#ratingsTab');
+        // Prevent multiple simultaneous calls
+        if (isDisplayingRatingsList) {
+            console.log('[UserRatings] displayRatingsList already in progress, skipping');
+            return;
         }
         
-        // Create the content container if it still doesn't exist
-        if (!ratingsTabContent) {
+        isDisplayingRatingsList = true;
+        
+        try {
+            // Find or create the ratings tab content container
+            let ratingsTabContent = document.querySelector('#ratingsTab');
+            
+            // If content doesn't exist yet, wait a bit and try again, then create it
+            if (!ratingsTabContent) {
+                console.log('[UserRatings] Ratings tab content not found, waiting...');
+                await new Promise(resolve => setTimeout(resolve, 200));
+                ratingsTabContent = document.querySelector('#ratingsTab');
+            }
+            
+            // Create the content container if it still doesn't exist
+            if (!ratingsTabContent) {
                 // Find where to insert the content - look for existing tabContent elements
                 // Custom tabs plugin injects content as siblings to favoritesTab
                 const favoritesTab = document.querySelector('#favoritesTab');
@@ -1129,27 +1152,30 @@
                     insertLocation.appendChild(ratingsTabContent);
                 }
             }
-        
-        // Ensure data-index matches between button and content for Jellyfin's tab switching
-        const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
-        if (ratingsTabBtn && ratingsTabContent) {
-            const tabIndex = ratingsTabBtn.getAttribute('data-index');
-            if (tabIndex) {
-                ratingsTabContent.setAttribute('data-index', tabIndex);
+            
+            // Ensure data-index matches between button and content for Jellyfin's tab switching
+            const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
+            if (ratingsTabBtn && ratingsTabContent) {
+                const tabIndex = ratingsTabBtn.getAttribute('data-index');
+                if (tabIndex) {
+                    ratingsTabContent.setAttribute('data-index', tabIndex);
+                }
             }
-        }
-        
-        console.log('[UserRatings] displayRatingsList - content element:', ratingsTabContent);
+            
+            console.log('[UserRatings] displayRatingsList - content element:', ratingsTabContent);
 
-        // Show loading
-        if (ratingsTabContent) {
-            ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
-        } else {
-            console.error('[UserRatings] ratingsTabContent is null!');
-            return;
-        }
+            // Show loading
+            if (ratingsTabContent) {
+                // Only show loading if content is actually empty or just has loading text
+                const currentContent = ratingsTabContent.innerHTML.trim();
+                if (!currentContent || currentContent.includes('Loading ratings') || currentContent.length < 100) {
+                    ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
+                }
+            } else {
+                console.error('[UserRatings] ratingsTabContent is null! Cannot display ratings list.');
+                return;
+            }
 
-        try {
             // Get all rated items
             const ratingsResponse = await fetch(ApiClient.getUrl('api/UserRatings/AllRatedItems'), {
                 headers: {
@@ -1457,11 +1483,16 @@
 
         } catch (error) {
             console.error('[UserRatings] Error displaying ratings list:', error);
-            ratingsTabContent.innerHTML = `
-                <div style="padding: 2em; background: rgba(229, 57, 53, 0.2); border: 1px solid rgba(229, 57, 53, 0.5); border-radius: 8px; color: #ff6b6b; margin: 2em;">
-                    <strong>Error:</strong> ${error.message}
-                </div>
-            `;
+            const ratingsTabContent = document.querySelector('#ratingsTab');
+            if (ratingsTabContent) {
+                ratingsTabContent.innerHTML = `
+                    <div style="padding: 2em; background: rgba(229, 57, 53, 0.2); border: 1px solid rgba(229, 57, 53, 0.5); border-radius: 8px; color: #ff6b6b; margin: 2em;">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            }
+        } finally {
+            isDisplayingRatingsList = false;
         }
     }
 
@@ -1589,6 +1620,182 @@
         
         const tabsElement = findTabsElement();
         
+        // CRITICAL: Monkey-patch HomeView's getTabController to prevent module loading error
+        // When Jellyfin tries to load a controller for index 2, it will fail because there's no case for it
+        // We need to provide a dummy controller that does nothing
+        const tabIndex = parseInt(ratingsTab.getAttribute('data-index'), 10);
+        
+        // Create a dummy controller for our tab - must match the interface expected by TabbedView
+        const dummyController = {
+            onResume: function(options) {
+                // Do nothing - we handle content loading ourselves via tabchange event
+                console.log('[UserRatings] Dummy controller onResume called', options);
+            },
+            onPause: function() {
+                // Do nothing
+                console.log('[UserRatings] Dummy controller onPause called');
+            },
+            refreshed: true,
+            destroy: function() {
+                // Do nothing
+            }
+        };
+        
+        // Store the dummy controller globally so we can access it later
+        window._ratingsDummyController = dummyController;
+        
+        // Try to patch getTabController by listening for viewshow events
+        // The view is created when the home page is shown
+        const patchGetTabController = () => {
+            // Try multiple ways to find the view instance
+            const homePage = document.querySelector('#indexPage');
+            if (!homePage) return false;
+            
+            // Look for the view instance on the page element or in global scope
+            // Jellyfin might attach it to the page element or store it globally
+            let viewInstance = null;
+            
+            // Method 1: Try to find it via the page element's properties
+            for (let key in homePage) {
+                if (homePage[key] && typeof homePage[key] === 'object' && homePage[key].getTabController) {
+                    viewInstance = homePage[key];
+                    console.log('[UserRatings] Found view instance via page element property:', key);
+                    break;
+                }
+            }
+            
+            // Method 2: Try accessing via router
+            if (!viewInstance) {
+                try {
+                    // Try window.appRouter first
+                    if (window.appRouter && window.appRouter._currentView && window.appRouter._currentView.getTabController) {
+                        viewInstance = window.appRouter._currentView;
+                        console.log('[UserRatings] Found view instance via window.appRouter');
+                    }
+                } catch (e) {
+                    // Ignore
+                }
+            }
+            
+            // Method 3: Try to find via event targets or DOM data attributes
+            if (!viewInstance) {
+                // Check if homePage has any custom properties set by Jellyfin
+                if (homePage._view) {
+                    viewInstance = homePage._view;
+                    console.log('[UserRatings] Found view instance via homePage._view');
+                }
+            }
+            
+            // Method 4: Search the entire document for objects with getTabController
+            if (!viewInstance) {
+                // This is more expensive but might find it
+                const allElements = document.querySelectorAll('[data-role="page"]');
+                for (let elem of allElements) {
+                    for (let key in elem) {
+                        if (elem[key] && typeof elem[key] === 'object' && elem[key].getTabController) {
+                            viewInstance = elem[key];
+                            console.log('[UserRatings] Found view instance via search on element:', elem.id || elem.className);
+                            break;
+                        }
+                    }
+                    if (viewInstance) break;
+                }
+            }
+            
+            if (viewInstance && viewInstance.getTabController) {
+                // Always re-patch (don't check _ratingsPatched) because the view might be recreated
+                const originalGetTabController = viewInstance.getTabController.bind(viewInstance);
+                viewInstance.getTabController = function(index) {
+                    if (index === tabIndex) {
+                        // Return our dummy controller for the ratings tab
+                        console.log('[UserRatings] Intercepting getTabController for index', index, '- returning dummy controller');
+                        return Promise.resolve(dummyController);
+                    }
+                    // Otherwise, call the original method
+                    try {
+                        const result = originalGetTabController(index);
+                        // If the result is a promise that rejects (module not found), catch it
+                        if (result && typeof result.then === 'function') {
+                            return result.catch(error => {
+                                // If it's a module loading error for an unknown index, return dummy controller
+                                if (error.message && (error.message.includes('Cannot find module') || error.message.includes('Failed to fetch'))) {
+                                    console.warn('[UserRatings] Module loading failed for index', index, '- returning dummy controller', error.message);
+                                    return dummyController;
+                                }
+                                throw error;
+                            });
+                        }
+                        return result;
+                    } catch (error) {
+                        // If original method fails (e.g., index out of range), return dummy controller
+                        if (error.message && (error.message.includes('Cannot find module') || error.message.includes('Failed to fetch'))) {
+                            console.warn('[UserRatings] getTabController failed for index', index, '- returning dummy controller', error.message);
+                            return Promise.resolve(dummyController);
+                        }
+                        throw error;
+                    }
+                };
+                viewInstance.getTabController._ratingsPatched = true;
+                console.log('[UserRatings] Successfully monkey-patched getTabController to prevent module loading error');
+                return true;
+            }
+            
+            // Also try to patch at the TabbedView level if we can find it
+            // Look for tabControllers array and add our dummy controller
+            if (viewInstance && viewInstance.tabControllers) {
+                // Pre-populate the tabControllers array with our dummy controller
+                if (!viewInstance.tabControllers[tabIndex]) {
+                    viewInstance.tabControllers[tabIndex] = dummyController;
+                    console.log('[UserRatings] Pre-populated tabControllers[' + tabIndex + '] with dummy controller');
+                }
+            }
+            
+            return false;
+        };
+        
+        // Store the patch function globally so it can be called from hashchange handler
+        window._patchRatingsGetTabController = patchGetTabController;
+        
+        // Try to patch immediately
+        patchGetTabController();
+        
+        // Keep trying to patch - the view might not be ready yet
+        // Try multiple times with increasing delays
+        const patchAttempts = [100, 300, 500, 1000, 2000];
+        patchAttempts.forEach(delay => {
+            setTimeout(() => {
+                if (!patchGetTabController()) {
+                    console.log('[UserRatings] Patch attempt at', delay, 'ms failed, will retry');
+                }
+            }, delay);
+        });
+        
+        // Also listen for viewshow event - this fires when a view is shown
+        // DON'T remove the listener - we need to re-patch on every navigation
+        document.addEventListener('viewshow', function onViewShow(e) {
+            // Only patch if we're on the home page
+            if (window.location.hash.includes('home') || window.location.hash === '' || window.location.hash === '#') {
+                setTimeout(() => {
+                    if (patchGetTabController()) {
+                        console.log('[UserRatings] Successfully patched via viewshow event');
+                    }
+                }, 100);
+            }
+        });
+        
+        // Also listen for DOMContentLoaded and any navigation events
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', patchGetTabController);
+        }
+        
+        // Watch for any object with getTabController being created
+        // This is a more aggressive approach - intercept at the prototype level if possible
+        const originalImport = window.__webpack_require__ || (window.require && window.require);
+        if (originalImport && typeof originalImport === 'function') {
+            // Try to intercept module loading errors for our tab index
+            console.log('[UserRatings] Attempting to intercept module loading');
+        }
+        
         // Listen for Jellyfin's beforetabchange event to ensure is-active class is set correctly
         // This is how maintabsmanager.js manages tab visibility (lines 140-154)
         if (tabsElement && typeof tabsElement.addEventListener === 'function') {
@@ -1596,6 +1803,10 @@
                 const selectedIndex = e.detail?.selectedTabIndex;
                 const previousIndex = e.detail?.previousIndex;
                 const tabIndex = parseInt(ratingsTab.getAttribute('data-index'), 10);
+                
+                // CRITICAL: Try to patch getTabController RIGHT BEFORE tab switches
+                // This ensures the patch is in place when Jellyfin calls getTabController
+                patchGetTabController();
                 
                 // Ensure content exists
                 const ratingsTabContent = ensureRatingsContent();
@@ -1641,19 +1852,33 @@
                         console.log('[UserRatings] Added is-active class manually (should not be needed)');
                     }
                     
-                    // Load content if needed
-                    const needsLoad = !ratingsTabContent.innerHTML.trim() || 
-                                     ratingsTabContent.innerHTML.includes('Loading ratings') ||
-                                     ratingsTabContent.innerHTML.length < 100;
+                    // Always load content when tab is selected (it might just have "Loading ratings..." text)
+                    const hasRealContent = ratingsTabContent.innerHTML.length > 200 && 
+                                          !ratingsTabContent.innerHTML.includes('Loading ratings');
                     
-                    if (needsLoad) {
+                    if (!hasRealContent) {
                         try {
-                            console.log('[UserRatings] Loading ratings content');
+                            console.log('[UserRatings] Loading ratings content (current length:', ratingsTabContent.innerHTML.length, ')');
                             await displayRatingsList();
-                            console.log('[UserRatings] Content loaded, innerHTML length:', ratingsTabContent.innerHTML.length);
+                            const newLength = ratingsTabContent.innerHTML.length;
+                            console.log('[UserRatings] Content loaded, new innerHTML length:', newLength);
+                            
+                            // Verify content was actually loaded
+                            if (newLength < 200 || ratingsTabContent.innerHTML.includes('Loading ratings')) {
+                                console.warn('[UserRatings] Content may not have loaded properly');
+                            }
                         } catch (error) {
                             console.error('[UserRatings] Error loading content:', error);
+                            // Show error to user
+                            ratingsTabContent.innerHTML = `
+                                <div style="padding: 4em 2em; text-align: center; color: red;">
+                                    <div style="font-size: 1.2em; margin-bottom: 0.5em;">Error loading ratings</div>
+                                    <div>${error.message}</div>
+                                </div>
+                            `;
                         }
+                    } else {
+                        console.log('[UserRatings] Content already loaded, skipping reload');
                     }
                 }
             });
@@ -1668,6 +1893,10 @@
             if (!clickedTab || clickedTab !== ratingsTab || !ratingsTab.hasAttribute('data-ratings-tab')) {
                 return; // Not our tab, let Jellyfin handle it normally
             }
+            
+            // CRITICAL: Patch getTabController BEFORE content creation/check
+            // This must happen synchronously before Jellyfin processes the click
+            patchGetTabController();
             
             // CRITICAL: Ensure content exists synchronously BEFORE Jellyfin processes the click
             // Jellyfin's getTabContainers() must find it in #indexPage at the correct array index
@@ -1727,6 +1956,24 @@
                     console.log('[UserRatings] Updated data-index to', tabIndex);
                 }
             }
+            
+            // Trigger content loading after a short delay to ensure tabchange event has fired
+            // This is a fallback in case tabchange doesn't fire or has issues
+            setTimeout(async () => {
+                const contentAfterDelay = document.querySelector('#ratingsTab');
+                if (contentAfterDelay && contentAfterDelay.classList.contains('is-active')) {
+                    const hasRealContent = contentAfterDelay.innerHTML.length > 200 && 
+                                          !contentAfterDelay.innerHTML.includes('Loading ratings');
+                    if (!hasRealContent) {
+                        console.log('[UserRatings] Fallback: Triggering content load from click handler');
+                        try {
+                            await displayRatingsList();
+                        } catch (error) {
+                            console.error('[UserRatings] Fallback load error:', error);
+                        }
+                    }
+                }
+            }, 300);
             
             // Don't prevent default - let Jellyfin handle tab switching
             // The tabchange event listener above will handle loading content
