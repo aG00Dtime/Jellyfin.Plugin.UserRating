@@ -227,6 +227,7 @@
     let hasTriedRefresh = false; // Flag to prevent infinite refresh loops
     let isNavigating = false; // Flag to prevent refresh during navigation
     let lastNavigationTime = 0; // Track when navigation occurred
+    let lastActivePage = null; // Track the last active page before switching to ratings
 
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
@@ -676,6 +677,17 @@
             return;
         }
         
+        // Only inject on details pages - check URL first
+        const currentHash = window.location.hash;
+        const currentUrl = window.location.href;
+        const isDetailsPage = currentHash.includes('#/details') || currentHash.includes('/details') || 
+                              currentUrl.includes('/details');
+        
+        if (!isDetailsPage) {
+            // Not on a details page - don't try to inject
+            return;
+        }
+        
         // Get item ID from URL first
         let itemId = null;
         const urlParams = new URLSearchParams(window.location.search);
@@ -694,7 +706,7 @@
         }
         
         if (!itemId) {
-            console.log('[UserRatings] No item ID found');
+            console.log('[UserRatings] No item ID found on details page');
             injectionAttempts = 0;
             return;
         }
@@ -915,32 +927,38 @@
         
         // Even if URL didn't change, check if detail page content appeared
         // This handles cases where the page loads but URL was already set
-        for (const mutation of mutations) {
-            for (const node of mutation.addedNodes) {
-                if (node.nodeType === 1) { // Element node
-                    // Check if a detail page container was added
-                    if (node.classList && (
-                        node.classList.contains('detailPagePrimaryContent') ||
-                        node.classList.contains('detailSection') ||
-                        node.classList.contains('itemDetailPage')
-                    )) {
-                        console.log('[UserRatings] Detail page container detected, triggering injection');
-                        isInjecting = false;
-                        injectionAttempts = 0;
-                        setTimeout(injectRatingsUI, 100);
-                        return;
-                    }
-                    // Also check children
-                    if (node.querySelector && (
-                        node.querySelector('.detailPagePrimaryContent') ||
-                        node.querySelector('.detailSection') ||
-                        node.querySelector('.itemDetailPage')
-                    )) {
-                        console.log('[UserRatings] Detail page content detected in mutation, triggering injection');
-                        isInjecting = false;
-                        injectionAttempts = 0;
-                        setTimeout(injectRatingsUI, 100);
-                        return;
+        // But only if we're actually on a details page
+        const currentHash = location.hash;
+        const isDetailsPage = currentHash.includes('#/details') || currentHash.includes('/details');
+        
+        if (isDetailsPage) {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType === 1) { // Element node
+                        // Check if a detail page container was added
+                        if (node.classList && (
+                            node.classList.contains('detailPagePrimaryContent') ||
+                            node.classList.contains('detailSection') ||
+                            node.classList.contains('itemDetailPage')
+                        )) {
+                            console.log('[UserRatings] Detail page container detected, triggering injection');
+                            isInjecting = false;
+                            injectionAttempts = 0;
+                            setTimeout(injectRatingsUI, 100);
+                            return;
+                        }
+                        // Also check children
+                        if (node.querySelector && (
+                            node.querySelector('.detailPagePrimaryContent') ||
+                            node.querySelector('.detailSection') ||
+                            node.querySelector('.itemDetailPage')
+                        )) {
+                            console.log('[UserRatings] Detail page content detected in mutation, triggering injection');
+                            isInjecting = false;
+                            injectionAttempts = 0;
+                            setTimeout(injectRatingsUI, 100);
+                            return;
+                        }
                     }
                 }
             }
@@ -951,6 +969,37 @@
     setTimeout(injectRatingsUI, 100);
     setTimeout(injectRatingsUI, 300);
     setTimeout(injectRatingsUI, 600);
+    
+    // Monkey-patch history API to track navigation (like custom tabs plugin)
+    const originalPushState = history.pushState;
+    const originalReplaceState = history.replaceState;
+    
+    history.pushState = function() {
+        originalPushState.apply(history, arguments);
+        handleHistoryChange();
+    };
+    
+    history.replaceState = function() {
+        originalReplaceState.apply(history, arguments);
+        handleHistoryChange();
+    };
+    
+    function handleHistoryChange() {
+        const currentHash = window.location.hash;
+        const ratingsTabContent = document.querySelector('#ratingsTab');
+        
+        // If navigating away from home and ratings tab is visible, hide it
+        if (ratingsTabContent && !currentHash.includes('#/home')) {
+            ratingsTabContent.style.display = 'none';
+            ratingsTabContent.classList.add('hide');
+            ratingsTabContent.style.pointerEvents = 'none';
+            
+            const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
+            if (ratingsTabBtn) {
+                ratingsTabBtn.classList.remove('emby-tab-button-active');
+            }
+        }
+    }
     
     // Also check on hash change
     window.addEventListener('hashchange', () => {
@@ -971,27 +1020,13 @@
                 ratingsTab.style.display = 'none';
                 ratingsTab.classList.add('hide');
             } else if (currentHash.includes('home')) {
-                // Navigating back to home - ensure ratings page is hidden and only show home page
+                // Navigating back to home - ensure ratings page is hidden
                 console.log('[UserRatings] Navigating to home - ensuring clean state');
                 ratingsTab.style.display = 'none';
                 ratingsTab.classList.add('hide');
                 
-                // Hide ALL pages except home
-                const allPages = document.querySelectorAll('[data-role="page"]');
-                allPages.forEach(page => {
-                    if (page.id === 'ratingsTab' || !page.classList.contains('homePage')) {
-                        page.classList.add('hide');
-                        page.style.display = 'none';
-                    }
-                });
-                
-                // Show only the home page
-                const homePage = document.querySelector('[data-role="page"].homePage:not(#ratingsTab)');
-                if (homePage) {
-                    homePage.classList.remove('hide');
-                    homePage.style.display = '';
-                    console.log('[UserRatings] Restored home page only');
-                }
+                // Don't hide other pages - let Jellyfin handle page visibility
+                // This was causing issues with favorites and other pages
             }
         }
         
@@ -1041,26 +1076,51 @@
                 ratingsTabContent.id = 'ratingsTab';
                 ratingsTabContent.className = 'page homePage libraryPage hide';
                 ratingsTabContent.setAttribute('data-role', 'page');
+                // Position like other Jellyfin pages - use absolute for proper layering
                 ratingsTabContent.style.position = 'absolute';
                 ratingsTabContent.style.top = '0';
                 ratingsTabContent.style.left = '0';
                 ratingsTabContent.style.right = '0';
                 ratingsTabContent.style.bottom = '0';
                 ratingsTabContent.style.overflow = 'auto';
+                ratingsTabContent.style.zIndex = '0'; // Same as other pages
                 
                 // Add as sibling to home page
                 homePage.parentNode.appendChild(ratingsTabContent);
             }
         
-        // Hide the home page and show ratings tab
-        const homePage = document.querySelector('[data-role="page"]:not(.hide):not(#ratingsTab)');
-        if (homePage) {
-            homePage.classList.add('hide');
+        // Store the last active page ID in history state before switching to ratings
+        const activePages = Array.from(document.querySelectorAll('[data-role="page"]')).filter(page => {
+            return !page.classList.contains('hide') && page.style.display !== 'none' && page.id !== 'ratingsTab';
+        });
+        if (activePages.length > 0) {
+            lastActivePage = activePages[0];
+            const pageId = lastActivePage.id || lastActivePage.getAttribute('data-index') || null;
+            // Store in history state so we can restore it
+            try {
+                const currentState = history.state || {};
+                history.replaceState({ ...currentState, lastActivePageId: pageId }, '', window.location.href);
+                console.log('[UserRatings] Storing last active page in history state:', pageId);
+            } catch (e) {
+                console.log('[UserRatings] Could not store page in history state:', e);
+            }
         }
         
-        ratingsTabContent.classList.remove('hide');
-        ratingsTabContent.style.display = 'block';
-        ratingsTabContent.style.pointerEvents = 'auto';
+        // Hide all other pages and show ratings tab
+        // Use the same approach as Jellyfin's native tab switching
+        const allPages = document.querySelectorAll('[data-role="page"]');
+        allPages.forEach(page => {
+            if (page.id === 'ratingsTab') {
+                // Show ratings tab
+                page.classList.remove('hide');
+                page.style.display = '';
+                page.style.pointerEvents = 'auto';
+            } else {
+                // Hide all other pages
+                page.classList.add('hide');
+                page.style.display = 'none';
+            }
+        });
 
         // Show loading
         ratingsTabContent.innerHTML = '<div style="padding: 3em 2em; text-align: center; color: rgba(255,255,255,0.6);">Loading ratings...</div>';
@@ -1446,23 +1506,59 @@
         });
 
         // Add listeners to other tabs to properly switch content
-        const otherTabs = tabsSlider.querySelectorAll('.emby-tab-button:not([data-ratings-tab="true"])');
-        otherTabs.forEach((tab, index) => {
+        // Use a flag to track if we've added listeners to avoid duplicates
+        if (!tabsSlider.hasAttribute('data-ratings-listeners-added')) {
+            tabsSlider.setAttribute('data-ratings-listeners-added', 'true');
+            
+            const otherTabs = tabsSlider.querySelectorAll('.emby-tab-button:not([data-ratings-tab="true"])');
+            otherTabs.forEach((tab, index) => {
             tab.addEventListener('click', function(e) {
-                // Hide ratings tab
+                // Hide ratings tab completely - do this immediately
                 const ratingsTabContent = document.querySelector('#ratingsTab');
                 if (ratingsTabContent) {
                     ratingsTabContent.style.display = 'none';
                     ratingsTabContent.classList.add('hide');
+                    ratingsTabContent.style.pointerEvents = 'none';
                 }
                 
-                // Show the home page
-                const homePage = document.querySelector('[data-role="page"].hide:not(#ratingsTab)');
-                if (homePage) {
-                    homePage.classList.remove('hide');
+                // Remove active class from ratings tab button
+                const ratingsTabBtn = document.querySelector('[data-ratings-tab="true"]');
+                if (ratingsTabBtn) {
+                    ratingsTabBtn.classList.remove('emby-tab-button-active');
                 }
+                
+                // Try to restore the last active page from history state
+                setTimeout(() => {
+                    try {
+                        const state = history.state || {};
+                        const lastPageId = state.lastActivePageId;
+                        
+                        if (lastPageId) {
+                            // Try to find and show the page by ID or data-index
+                            let pageToRestore = document.getElementById(lastPageId);
+                            if (!pageToRestore) {
+                                pageToRestore = Array.from(document.querySelectorAll('[data-role="page"]')).find(p => 
+                                    p.getAttribute('data-index') === lastPageId
+                                );
+                            }
+                            
+                            if (pageToRestore && pageToRestore !== ratingsTabContent) {
+                                console.log('[UserRatings] Restoring page from history state:', lastPageId);
+                                pageToRestore.classList.remove('hide');
+                                pageToRestore.style.display = '';
+                                // Clear the stored state after use
+                                history.replaceState({ ...state, lastActivePageId: null }, '', window.location.href);
+                            }
+                        }
+                    } catch (e) {
+                        console.log('[UserRatings] Could not restore page from history state:', e);
+                    }
+                    
+                    // Fallback: Let Jellyfin handle it if we couldn't restore
+                }, 100);
             }, true); // Use capture to run before Jellyfin's handler
-        });
+            });
+        }
 
             // Insert the tab
             tabsSlider.appendChild(ratingsTab);
