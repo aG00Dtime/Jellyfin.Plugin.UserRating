@@ -69,16 +69,44 @@
             font-size: 1.9em;
         }
         .star-rating .star {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             color: rgba(255, 255, 255, 0.15);
             transition: color 0.2s, transform 0.15s;
             cursor: pointer;
             filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+            overflow: hidden;
         }
-        .star-rating .star.filled {
+        .star-rating .star::before {
+            content: '★';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: var(--fill-width, 0%);
+            overflow: hidden;
             color: #ffd700;
+            pointer-events: none;
+        }
+        .star-rating .star .star-hitbox {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 50%;
+            z-index: 2;
+        }
+        .star-rating .star .star-hitbox-left {
+            left: 0;
+        }
+        .star-rating .star .star-hitbox-right {
+            right: 0;
+        }
+        .star-rating .star.filled,
+        .star-rating .star.half-filled {
+            color: rgba(255, 255, 255, 0.15);
         }
         .star-rating .star:hover {
-            color: #ffed4e;
             transform: scale(1.15);
         }
         .rating-prompt {
@@ -206,6 +234,28 @@
         .rating-item-stars {
             color: #ffd700;
             margin-left: 0.5em;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35em;
+        }
+        .rating-item-stars .rating-stars-visual {
+            display: inline-flex;
+            gap: 0.2em;
+        }
+        .rating-item-stars .star {
+            position: relative;
+            display: inline-flex;
+            color: rgba(255, 255, 255, 0.18);
+            overflow: hidden;
+        }
+        .rating-item-stars .star::before {
+            content: '★';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: var(--fill-width, 0%);
+            overflow: hidden;
+            color: #ffd700;
         }
         .rating-item-date {
             font-size: 0.85em;
@@ -223,33 +273,121 @@
 
     let currentItemId = null;
     let currentRating = 0;
+    let allowHalfStars = false;
+    let configLoaded = false;
+    let configLoadingPromise = null;
     let isInjecting = false; // Flag to prevent concurrent injections
     let hasTriedRefresh = false; // Flag to prevent infinite refresh loops
     let isNavigating = false; // Flag to prevent refresh during navigation
     let lastNavigationTime = 0; // Track when navigation occurred
 
+    function normalizeRating(rating) {
+        const numericRating = Number(rating) || 0;
+        return Math.max(0, Math.min(5, Math.round(numericRating * 2) / 2));
+    }
+
+    function getStarFillPercent(starNumber, rating) {
+        const normalizedRating = normalizeRating(rating);
+        const diff = normalizedRating - (starNumber - 1);
+
+        if (diff >= 1) {
+            return 100;
+        }
+
+        if (diff >= 0.5) {
+            return 50;
+        }
+
+        return 0;
+    }
+
+    function formatRatingLabel(rating) {
+        const normalizedRating = normalizeRating(rating);
+        return Number.isInteger(normalizedRating) ? String(normalizedRating) : normalizedRating.toFixed(1);
+    }
+
+    function clampRatingToSetting(rating) {
+        const normalizedRating = normalizeRating(rating);
+        return allowHalfStars ? normalizedRating : Math.round(normalizedRating);
+    }
+
+    async function ensureConfigLoaded() {
+        if (configLoaded) {
+            return;
+        }
+
+        if (!configLoadingPromise) {
+            configLoadingPromise = ApiClient.getPluginConfiguration(UserRatingsConfig.pluginUniqueId)
+                .then(config => {
+                    allowHalfStars = config.EnableHalfStarRatings === true;
+                    configLoaded = true;
+                })
+                .catch(error => {
+                    console.warn('[UserRatings] Failed to load config, defaulting to half stars disabled', error);
+                    allowHalfStars = false;
+                    configLoaded = true;
+                });
+        }
+
+        await configLoadingPromise;
+    }
+
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
         container.className = 'star-rating';
-        let currentSelectedRating = rating;
+        let currentSelectedRating = normalizeRating(rating);
         
         for (let i = 1; i <= 5; i++) {
             const star = document.createElement('span');
-            star.className = 'star' + (i <= rating ? ' filled' : '');
+            star.className = 'star';
             star.textContent = '★';
-            star.dataset.rating = i;
+            star.dataset.star = i;
             
             if (interactive) {
-                star.addEventListener('mouseenter', () => onHover(i));
-                star.addEventListener('click', () => {
-                    currentSelectedRating = i;
-                    onClick(i);
+                const getHoverRating = (isLeftHalf) => clampRatingToSetting(allowHalfStars ? ((i - 1) + (isLeftHalf ? 0.5 : 1)) : i);
+
+                star.addEventListener('mousemove', (event) => {
+                    const rect = star.getBoundingClientRect();
+                    const relativeX = event.clientX - rect.left;
+                    const isLeftHalf = relativeX <= (rect.width / 2);
+                    onHover(getHoverRating(isLeftHalf));
                 });
+
+                star.addEventListener('click', (event) => {
+                    const rect = star.getBoundingClientRect();
+                    const relativeX = event.clientX - rect.left;
+                    const isLeftHalf = relativeX <= (rect.width / 2);
+                    currentSelectedRating = getHoverRating(isLeftHalf);
+                    onClick(currentSelectedRating);
+                });
+
+                const leftHitbox = document.createElement('span');
+                leftHitbox.className = 'star-hitbox star-hitbox-left';
+                leftHitbox.addEventListener('mouseenter', () => onHover(getHoverRating(true)));
+                leftHitbox.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    currentSelectedRating = getHoverRating(true);
+                    onClick(currentSelectedRating);
+                });
+
+                const rightHitbox = document.createElement('span');
+                rightHitbox.className = 'star-hitbox star-hitbox-right';
+                rightHitbox.addEventListener('mouseenter', () => onHover(getHoverRating(false)));
+                rightHitbox.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    currentSelectedRating = getHoverRating(false);
+                    onClick(currentSelectedRating);
+                });
+
+                star.appendChild(leftHitbox);
+                star.appendChild(rightHitbox);
             }
             
             container.appendChild(star);
         }
         
+        updateStarDisplay(container, currentSelectedRating);
+
         if (interactive) {
             container.addEventListener('mouseleave', () => onHover(currentSelectedRating));
         }
@@ -260,11 +398,10 @@
     function updateStarDisplay(container, rating) {
         const stars = container.querySelectorAll('.star');
         stars.forEach((star, index) => {
-            if (index < rating) {
-                star.classList.add('filled');
-            } else {
-                star.classList.remove('filled');
-            }
+            const fill = getStarFillPercent(index + 1, rating);
+            star.style.setProperty('--fill-width', `${fill}%`);
+            star.classList.toggle('filled', fill === 100);
+            star.classList.toggle('half-filled', fill === 50);
         });
     }
 
@@ -302,10 +439,12 @@
 
     async function saveRating(itemId, rating, note) {
         try {
+            await ensureConfigLoaded();
+            const adjustedRating = clampRatingToSetting(rating);
             const userId = ApiClient.getCurrentUserId();
             const user = await ApiClient.getCurrentUser();
             const userName = user ? user.Name : 'Unknown';
-            const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&userId=${userId}&rating=${rating}${note ? '&note=' + encodeURIComponent(note) : ''}&userName=${encodeURIComponent(userName)}`);
+            const url = ApiClient.getUrl(`api/UserRatings/Rate?itemId=${itemId}&userId=${userId}&rating=${adjustedRating}${note ? '&note=' + encodeURIComponent(note) : ''}&userName=${encodeURIComponent(userName)}`);
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -373,6 +512,7 @@
 
     async function createRatingsUI(itemId) {
         console.log('[UserRatings] → createRatingsUI started for:', itemId);
+        await ensureConfigLoaded();
         const container = document.createElement('div');
         container.className = 'user-ratings-container';
         container.id = 'user-ratings-ui';
@@ -419,13 +559,18 @@
         
         const starContainer = createStarRating(0, true,
             (rating) => {
-                updateStarDisplay(starContainer, rating);
-                ratingPrompt.style.display = rating === 0 ? 'inline' : 'none';
+                const normalizedRating = normalizeRating(rating);
+                updateStarDisplay(starContainer, normalizedRating);
+                ratingPrompt.style.display = normalizedRating === 0 ? 'inline' : 'none';
+                ratingValueLabel.style.display = normalizedRating === 0 ? 'none' : 'inline';
+                ratingValueLabel.textContent = normalizedRating === 0 ? '' : `${formatRatingLabel(normalizedRating)}/5`;
             },
             (rating) => {
-                currentRating = rating;
-                updateStarDisplay(starContainer, rating);
-                ratingPrompt.style.display = 'none';
+                currentRating = clampRatingToSetting(rating);
+                updateStarDisplay(starContainer, currentRating);
+                ratingPrompt.style.display = currentRating === 0 ? 'inline' : 'none';
+                ratingValueLabel.style.display = currentRating === 0 ? 'none' : 'inline';
+                ratingValueLabel.textContent = currentRating === 0 ? '' : `${formatRatingLabel(currentRating)}/5`;
             }
         );
         starRatingContainer.appendChild(starContainer);
@@ -434,6 +579,11 @@
         ratingPrompt.className = 'rating-prompt';
         ratingPrompt.textContent = 'Select your rating';
         starRatingContainer.appendChild(ratingPrompt);
+
+        const ratingValueLabel = document.createElement('span');
+        ratingValueLabel.className = 'rating-prompt';
+        ratingValueLabel.style.display = 'none';
+        starRatingContainer.appendChild(ratingValueLabel);
         
         starSection.appendChild(starRatingContainer);
         myRatingSection.appendChild(starSection);
@@ -524,6 +674,9 @@
                 currentRating = 0;
                 noteInput.value = '';
                 updateStarDisplay(starContainer, 0);
+                ratingPrompt.style.display = 'inline';
+                ratingValueLabel.style.display = 'none';
+                ratingValueLabel.textContent = '';
                 deleteBtn.style.display = 'none';
                 
                 await displayAllRatings(itemId, container);
@@ -550,9 +703,11 @@
         const myRating = await loadMyRating(itemId);
         console.log('[UserRatings] → My rating loaded:', myRating);
         if (myRating && myRating.rating) {
-            currentRating = myRating.rating;
-            updateStarDisplay(starContainer, myRating.rating);
+            currentRating = clampRatingToSetting(myRating.rating);
+            updateStarDisplay(starContainer, currentRating);
             ratingPrompt.style.display = 'none';
+            ratingValueLabel.style.display = 'inline';
+            ratingValueLabel.textContent = `${formatRatingLabel(currentRating)}/5`;
             noteInput.value = myRating.note || '';
             // Update character counter
             const length = noteInput.value.length;
@@ -630,8 +785,8 @@
             
             const stars = document.createElement('span');
             stars.className = 'rating-item-stars';
-            const ratingValue = rating.rating || rating.Rating || 0;
-            stars.textContent = '★'.repeat(ratingValue) + '☆'.repeat(5 - ratingValue);
+            const ratingValue = clampRatingToSetting(rating.rating || rating.Rating || 0);
+            stars.innerHTML = `<span class="rating-stars-visual">${renderRatingStars(ratingValue)}</span> <span class="rating-item-value">${formatRatingLabel(ratingValue)}/5</span>`;
             leftSide.appendChild(stars);
             
             header.appendChild(leftSide);

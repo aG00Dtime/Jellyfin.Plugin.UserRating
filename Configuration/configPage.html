@@ -21,6 +21,14 @@
                         <div class="fieldDescription">Number of items to display in each "Recently Rated" section (Movies, Shows, Episodes). Default is 10.</div>
                     </div>
 
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label" title="">
+                            <input id="enableHalfStarRatings" is="emby-checkbox" type="checkbox" data-embycheckbox="true" class="emby-checkbox" />
+                            <span class="checkboxLabel">Enable half-star ratings<div class="fieldDescription" style="margin-top: 0.35em;">Allow users to choose ratings in 0.5 star increments. Disabled by default for new installations.</div></span>
+                            <span class="checkboxOutline"><span class="material-icons checkboxIcon checkboxIcon-checked check" aria-hidden="true"></span><span class="material-icons checkboxIcon checkboxIcon-unchecked" aria-hidden="true"></span></span>
+                        </label>
+                    </div>
+
                     <div style="margin-top: 1em;">
                         <button type="submit" is="emby-button" class="raised button-submit block">
                             <span>Save</span>
@@ -52,6 +60,7 @@
                 
                 ApiClient.getPluginConfiguration(UserRatingsConfig.pluginUniqueId).then(function (config) {
                     document.getElementById('recentlyRatedCount').value = config.RecentlyRatedItemsCount || 10;
+                    document.getElementById('enableHalfStarRatings').checked = config.EnableHalfStarRatings === true;
                     Dashboard.hideLoadingMsg();
                 });
             });
@@ -62,6 +71,7 @@
                 
                 ApiClient.getPluginConfiguration(UserRatingsConfig.pluginUniqueId).then(function (config) {
                     config.RecentlyRatedItemsCount = parseInt(document.getElementById('recentlyRatedCount').value) || 10;
+                    config.EnableHalfStarRatings = document.getElementById('enableHalfStarRatings').checked;
                     
                     ApiClient.updatePluginConfiguration(UserRatingsConfig.pluginUniqueId, config).then(function () {
                         Dashboard.processPluginConfigurationUpdateResult();

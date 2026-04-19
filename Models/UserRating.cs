@@ -7,7 +7,7 @@ namespace Jellyfin.Plugin.UserRatings.Models
     {
         public Guid ItemId { get; set; }
         public Guid UserId { get; set; }
-        public int Rating { get; set; } // 1-5
+        public double Rating { get; set; } // 1.0-5.0 in 0.5 steps
         public string? Note { get; set; }
         public DateTime Timestamp { get; set; }
         public string? UserName { get; set; } // Cached for display
