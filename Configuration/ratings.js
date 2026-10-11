@@ -227,6 +227,39 @@
     let hasTriedRefresh = false; // Flag to prevent infinite refresh loops
     let isNavigating = false; // Flag to prevent refresh during navigation
     let lastNavigationTime = 0; // Track when navigation occurred
+    let softRetryCount = 0; // Soft re-injection attempts for the current page
+    const maxSoftRetries = 5;
+
+    // The Jellyfin web client keeps previously visited pages in the DOM (hidden,
+    // for fast back-navigation). A plain document.querySelector() therefore often
+    // matches a hidden, stale detail page. Always work on the visible one.
+    function isVisible(el) {
+        return !!el && !el.classList.contains('hide') && el.getClientRects().length > 0;
+    }
+
+    function getActiveDetailPage() {
+        for (const page of document.querySelectorAll('.itemDetailPage')) {
+            if (isVisible(page)) {
+                return page;
+            }
+        }
+        // Fallback: any visible page that contains detail content
+        for (const page of document.querySelectorAll('[data-role="page"]')) {
+            if (isVisible(page) && page.querySelector('.detailPagePrimaryContent')) {
+                return page;
+            }
+        }
+        return null;
+    }
+
+    function getActiveRatingsUI() {
+        const page = getActiveDetailPage();
+        return page ? page.querySelector('#user-ratings-ui') : null;
+    }
+
+    function removeAllRatingsUI() {
+        document.querySelectorAll('#user-ratings-ui').forEach(el => el.remove());
+    }
 
     function createStarRating(rating, interactive, onHover, onClick) {
         const container = document.createElement('div');
@@ -344,31 +377,21 @@
     }
 
     function seamlessPageRefresh(itemId, force = false) {
-        // Only refresh on details page
-        const currentHash = window.location.hash;
-        const currentUrl = window.location.href;
-        const isDetailsPage = currentHash.includes('#/details') || currentHash.includes('/details') || 
-                              currentUrl.includes('/details') || 
-                              (itemId && currentHash.includes(itemId));
-        
-        if (!isDetailsPage) {
-            console.log('[UserRatings] Skipping refresh - not on details page');
+        // This used to call window.location.reload(), which made the whole web
+        // client render twice (first without, then with the ratings UI).
+        // Instead, drop the misplaced UI and inject again into the visible page.
+        if (softRetryCount >= maxSoftRetries) {
+            console.log('[UserRatings] Giving up re-injection for this page');
+            isInjecting = false;
             return;
         }
-        
-        // Don't refresh if we recently refreshed (prevent loops)
-        // Unless forced (from final zero-size check)
-        if (!force && hasTriedRefresh) {
-            console.log('[UserRatings] Skipping refresh - already tried once');
-            return;
-        }
-        
-        console.log('[UserRatings] Performing hard page refresh', force ? '(FORCED)' : '');
-        hasTriedRefresh = true;
-        
-        // Hard refresh - reload the page completely
-        // This bypasses cache and reloads everything fresh
-        window.location.reload(true);
+        softRetryCount++;
+        console.log(`[UserRatings] Re-injecting UI (${softRetryCount}/${maxSoftRetries})`);
+        removeAllRatingsUI();
+        isInjecting = false;
+        injectionAttempts = 0;
+        currentItemId = null;
+        setTimeout(injectRatingsUI, 250 * softRetryCount);
     }
 
     async function createRatingsUI(itemId) {
@@ -700,7 +723,8 @@
         }
         
         // Check if UI already exists - if for same item, skip; if different item, remove it
-        const existingUI = document.getElementById('user-ratings-ui');
+        const activePage = getActiveDetailPage();
+        const existingUI = activePage ? activePage.querySelector('#user-ratings-ui') : null;
         if (existingUI && currentItemId === itemId) {
             console.log('[UserRatings] UI already exists for this item, skipping');
             injectionAttempts = 0;
@@ -717,11 +741,13 @@
         let targetContainer = null;
         
         // Strategy 1: Look for .detailSection inside .detailPagePrimaryContent
-        targetContainer = document.querySelector('.detailPagePrimaryContent .detailSection');
-        
+        if (activePage) {
+            targetContainer = activePage.querySelector('.detailPagePrimaryContent .detailSection');
+        }
+
         // Strategy 2: Look for .detailPagePrimaryContent itself
-        if (!targetContainer) {
-            const primaryContent = document.querySelector('.detailPagePrimaryContent');
+        if (!targetContainer && activePage) {
+            const primaryContent = activePage.querySelector('.detailPagePrimaryContent');
             if (primaryContent) {
                 // Check if it has children (content loaded)
                 if (primaryContent.children.length > 0) {
@@ -731,13 +757,13 @@
         }
         
         // Strategy 3: Look for any detail section
-        if (!targetContainer) {
-            targetContainer = document.querySelector('.detailSection');
+        if (!targetContainer && activePage) {
+            targetContainer = activePage.querySelector('.detailSection');
         }
-        
+
         // Strategy 4: Look for itemDetailPage
-        if (!targetContainer) {
-            const detailPage = document.querySelector('.itemDetailPage .detailPageContent');
+        if (!targetContainer && activePage) {
+            const detailPage = activePage.querySelector('.detailPageContent');
             if (detailPage) {
                 targetContainer = detailPage;
             }
@@ -751,16 +777,10 @@
                 console.log(`[UserRatings] Container not ready, retry ${injectionAttempts}/${maxInjectionAttempts} in ${retryDelay.toFixed(0)}ms`);
                 setTimeout(injectRatingsUI, retryDelay);
             } else {
-                console.log('[UserRatings] Max injection attempts reached, attempting seamless refresh');
-                
-                // Try seamless refresh - only once per page load
-                if (!hasTriedRefresh && itemId) {
-                    hasTriedRefresh = true;
-                    seamlessPageRefresh(itemId);
-                } else {
-                    injectionAttempts = 0;
-                    isInjecting = false;
-                }
+                // Never reload the page here - just give up for this view.
+                console.log('[UserRatings] Max injection attempts reached, not injecting on this page');
+                injectionAttempts = 0;
+                isInjecting = false;
             }
             return;
         }
@@ -776,6 +796,14 @@
             
             // Function to check size and handle refresh
             const checkSizeAndRefresh = (checkName) => {
+                // UI was removed or the user navigated away - nothing to fix
+                if (!ui.isConnected || currentItemId !== itemId) {
+                    return true;
+                }
+                // Page is hidden because the user navigated on - not an error
+                if (!getActiveDetailPage() || !getActiveDetailPage().contains(ui)) {
+                    return true;
+                }
                 const rect = ui.getBoundingClientRect();
                 const hasZeroSize = rect.width === 0 && rect.height === 0;
                 const hasZeroSizeFlag = ui.dataset.zeroSize === 'true';
@@ -794,10 +822,7 @@
                     }
                     
                     console.log('[UserRatings] UI has zero size, triggering refresh', isFinalCheck ? '(FORCED)' : '');
-                    const injectedUI = document.getElementById('user-ratings-ui');
-                    if (injectedUI) {
-                        injectedUI.remove();
-                    }
+                    ui.remove();
                     isInjecting = false;
                     hasTriedRefresh = false; // Allow refresh to be tried
                     seamlessPageRefresh(itemId, isFinalCheck); // Force if final check
@@ -853,7 +878,7 @@
             return;
         }
         
-        const ui = document.getElementById('user-ratings-ui');
+        const ui = getActiveRatingsUI();
         if (ui && currentItemId) {
             const rect = ui.getBoundingClientRect();
             // Check if UI exists but has zero size (hidden or not rendered)
@@ -885,11 +910,9 @@
             lastUrl = url;
             
             // Remove old UI when navigating to a new page
-            const oldUI = document.getElementById('user-ratings-ui');
-            if (oldUI) {
-                console.log('[UserRatings] Removing old UI on navigation');
-                oldUI.remove();
-            }
+            console.log('[UserRatings] Removing old UI on navigation');
+            removeAllRatingsUI();
+            softRetryCount = 0;
             
             // Hide ratings tab when navigating away from home
             const ratingsTab = document.querySelector('#ratingsTab');
@@ -955,10 +978,8 @@
     // Also check on hash change
     window.addEventListener('hashchange', () => {
         // Remove old UI on hash change
-        const oldUI = document.getElementById('user-ratings-ui');
-        if (oldUI) {
-            oldUI.remove();
-        }
+        removeAllRatingsUI();
+        softRetryCount = 0;
         
         // Manage page visibility
         const ratingsTab = document.querySelector('#ratingsTab');
